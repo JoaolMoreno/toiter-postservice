@@ -4,7 +4,11 @@ FROM openjdk:23-jdk-slim
 # Define o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
-RUN touch .env
+# Copia os arquivos do projeto para o contêiner
+COPY . .
+
+# Executa o comando de build do Gradle
+RUN ./gradlew clean build
 
 # Copia o arquivo JAR gerado pelo Gradle para o contêiner
 COPY build/libs/*.jar app.jar
