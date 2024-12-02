@@ -1,0 +1,160 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    hostname: zookeeper
+    container_name: zookeeper-p
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "zookeeper-shell", "localhost:2181", "ls", "/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka
+    container_name: kafka-p
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: >
+        post-created-topic:1:1,
+        like-created-topic:1:1,
+        repost-created-topic:1:1,
+        reply-created-topic:1:1,
+        view-registered-topic:1:1,
+        follow-created-topic:1:1,
+        follow-deleted-topic:1:1,
+        user-updated-topic:1:1
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui-p
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:15
+    container_name: postgres-p
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: toiterdb
+    volumes:
+      - toiterdb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U master -d toiterdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: redis-p
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  toiter-user-service:
+    image: lopesz3r4/toiter-user-service:latest
+    container_name: toiter-user-service-p
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "9990:9990"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/toiterdb
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME_USERSERVICE}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD_USERSERVICE}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_EXPIRATION: 3600000
+      JWT_REFRESH_TOKEN_EXPIRATION: 604800000
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVICE_SHARED_KEY: ${SERVICE_SHARED_KEY}
+    volumes:
+      - ./logs:/app/logs
+
+  toiter-postservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: toiter-postservice-p
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "9991:9991"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/toiterdb
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_EXPIRATION: 3600000
+      JWT_REFRESH_TOKEN_EXPIRATION: 604800000
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SERVICE_USER_URL: http://toiter-user-service:9990/internal
+      SERVICE_SHARED_KEY: ${SERVICE_SHARED_KEY}
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  redis_data:
+  toiterdb_data:
+    name: toiterdb_data
+  kafka-data:
+
+networks:
+  default:
+    driver: bridge
