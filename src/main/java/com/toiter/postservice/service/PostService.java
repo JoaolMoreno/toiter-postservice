@@ -6,9 +6,9 @@ import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
 import com.toiter.postservice.producer.KafkaProducer;
 import com.toiter.postservice.repository.PostRepository;
+import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,13 +62,7 @@ public class PostService {
         );
         postRepository.save(newPost);
 
-        PostCreatedEvent event = new PostCreatedEvent(
-                newPost.getId(),
-                newPost.getUserId(),
-                newPost.getContent(),
-                newPost.getParentPostId(),
-                newPost.getRepostParentId()
-        );
+        PostCreatedEvent event = new PostCreatedEvent(newPost);
         try {
             kafkaProducer.sendPostCreatedEvent(event);
             return newPost;
@@ -128,10 +123,22 @@ public class PostService {
 
 
     public void deletePost(Long id) {
+        Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post not found"));
+        post.setContent(null);
+        post.setUserId(null);
+        post.setMediaUrl(null);
+        post.setDeletedAt(LocalDateTime.now());
+        post.setDeleted(true);
+
+        postRepository.save(post);
+
         try {
-            postRepository.deleteById(id);
-        } catch (EmptyResultDataAccessException e) {
-            logger.warn("Post with id {} does not exist", id);
+            PostCreatedEvent event = new PostCreatedEvent(post);
+            kafkaProducer.sendPostDeletedEvent(event);
+        }
+        catch (Exception e) {
+            logger.error("Failed to send event to Kafka", e);
+            throw new RuntimeException("Failed to send event to Kafka");
         }
     }
 }

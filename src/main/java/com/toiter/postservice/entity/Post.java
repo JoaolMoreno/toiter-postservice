@@ -19,7 +19,6 @@ public class Post {
     @Column(name = "repost_parent_post_id")
     private Long repostParentId;
 
-    @Column(nullable = false)
     private Long userId;
 
     private String content;
@@ -29,6 +28,12 @@ public class Post {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted")
+    private boolean deleted;
 
 
     public Post() {
@@ -100,5 +105,21 @@ public class Post {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
     }
 }

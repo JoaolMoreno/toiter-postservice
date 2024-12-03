@@ -1,6 +1,7 @@
 package com.toiter.postservice.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.toiter.postservice.entity.Post;
 
 import java.time.LocalDateTime;
@@ -29,20 +30,12 @@ public class PostData {
 
     private Integer viewCount = 0;
 
+    @JsonIgnore
+    private boolean deleted;
+
     private LocalDateTime createdAt;
 
     public PostData() {
-    }
-
-    public PostData(Long id, Long parentPostId, Long userId, Long repostParentId, String content, String mediaUrl) {
-        this.id = id;
-        this.parentPostId = parentPostId;
-        this.repostParentId = repostParentId;
-        this.isRepost = repostParentId != null;
-        this.isReply = parentPostId != null;
-        this.userId = userId;
-        this.content = content;
-        this.mediaUrl = mediaUrl;
     }
 
     public PostData(Post post){
@@ -55,19 +48,7 @@ public class PostData {
         this.content = post.getContent();
         this.mediaUrl = post.getMediaUrl();
         this.createdAt = post.getCreatedAt();
-    }
-
-    public PostData(PostCreatedEvent event) {
-        this.id = event.getPostId();
-        this.parentPostId = event.getParentPostId();
-        this.repostParentId = event.getRepostParentId();
-        this.isRepost = event.getRepostParentId() != null;
-        this.isReply = event.getParentPostId() != null;
-        this.userId = event.getUserId();
-        this.content = event.getContent();
-    }
-
-    public PostData(Long postId, Long userId, String content, Long parentPostId) {
+        this.deleted = post.isDeleted();
     }
 
     public Long getId() {
@@ -164,5 +145,13 @@ public class PostData {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
     }
 }
