@@ -18,4 +18,11 @@ public class KafkaProducer {
             return true;
         });
     }
+
+    public void sendPostDeletedEvent(PostCreatedEvent event) {
+        kafkaTemplate.executeInTransaction(operations -> {
+            operations.send("post-deleted-topic", event);
+            return true;
+        });
+    }
 }
