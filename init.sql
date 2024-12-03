@@ -45,6 +45,53 @@ CREATE INDEX idx_posts_parent_post_id ON pst.posts (parent_post_id);
 CREATE INDEX idx_posts_user_id ON pst.posts (user_id);
 CREATE INDEX idx_posts_id ON pst.posts (id);
 
+-- Tabela 'like'
+CREATE TABLE pst.like (
+                          id BIGSERIAL PRIMARY KEY,       -- Identificador único
+                          user_id BIGINT NOT NULL,        -- ID do usuário que curtiu
+                          post_id BIGINT NOT NULL,        -- ID da postagem curtida
+                          created_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP -- Data e hora da curtida
+);
+
+-- Index para melhorar a performance em consultas
+CREATE INDEX idx_like_user_post ON pst.like (user_id, post_id);
+
+
+-- Adicionar constraint para user_id referenciando usr.user(id)
+ALTER TABLE pst.like
+    ADD CONSTRAINT fk_like_user_id
+        FOREIGN KEY (user_id)
+            REFERENCES usr.users(id);
+
+-- Adicionar constraint para post_id referenciando pst.posts(id)
+ALTER TABLE pst.like
+    ADD CONSTRAINT fk_like_post_id
+        FOREIGN KEY (post_id)
+            REFERENCES pst.posts(id);
+
+-- Tabela 'view'
+CREATE TABLE pst.view (
+                          id BIGSERIAL PRIMARY KEY,       -- Identificador único
+                          user_id BIGINT NOT NULL,        -- ID do usuário que visualizou
+                          post_id BIGINT NOT NULL,        -- ID da postagem visualizada
+                          created_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP -- Data e hora da visualização
+);
+
+-- Index para melhorar a performance em consultas
+CREATE INDEX idx_view_user_post ON pst.view (user_id, post_id);
+
+-- Adicionar constraint para user_id referenciando usr.user(id)
+ALTER TABLE pst.view
+    ADD CONSTRAINT fk_view_user_id
+        FOREIGN KEY (user_id)
+            REFERENCES usr.users(id);
+
+-- Adicionar constraint para post_id referenciando pst.posts(id)
+ALTER TABLE pst.view
+    ADD CONSTRAINT fk_view_post_id
+        FOREIGN KEY (post_id)
+            REFERENCES pst.posts(id);
+
 
 -- Alterar a propriedade do schema para o usuário 'pst'
 ALTER SCHEMA pst OWNER TO pst;
