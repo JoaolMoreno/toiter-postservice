@@ -117,13 +117,12 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SERVICE_SHARED_KEY: ${SERVICE_SHARED_KEY}
+      SERVER_URL: ${SERVER_URL}
     volumes:
       - ./logs:/app/logs
 
-  toiter-postservice:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  toiter-post-service:
+    image: lopesz3r4/toiter-post-service:latest
     container_name: toiter-postservice-p
     depends_on:
       postgres:
@@ -146,6 +145,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SERVICE_USER_URL: http://toiter-user-service:9990/internal
       SERVICE_SHARED_KEY: ${SERVICE_SHARED_KEY}
+      SERVER_URL: ${SERVER_URL}
     volumes:
       - ./logs:/app/logs
   nginx:
