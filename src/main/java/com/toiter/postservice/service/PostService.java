@@ -83,6 +83,7 @@ public class PostService {
         PostData postData;
         postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + id);
         if (postData != null) {
+            redisTemplateForPostData.expire(POST_ID_DATA_KEY_PREFIX + id, Duration.ofHours(1));
             return Optional.of(postData);
         }
         Optional<Post> post =  postRepository.findById(id);
