@@ -6,12 +6,14 @@ public class PostCreatedEvent {
     private Long userId;
     private String content;
     private Long parentPostId;
+    private Long repostParentId;
 
-    public PostCreatedEvent(Long postId, Long userId, String content, Long parentPostId) {
+    public PostCreatedEvent(Long postId, Long userId, String content, Long parentPostId, Long repostParentId) {
         this.postId = postId;
         this.userId = userId;
         this.content = content;
         this.parentPostId = parentPostId;
+        this.repostParentId = repostParentId;
     }
 
     public Long getPostId() {
@@ -44,5 +46,13 @@ public class PostCreatedEvent {
 
     public void setParentPostId(Long parentPostId) {
         this.parentPostId = parentPostId;
+    }
+
+    public Long getRepostParentId() {
+        return repostParentId;
+    }
+
+    public void setRepostParentId(Long repostParentId) {
+        this.repostParentId = repostParentId;
     }
 }
