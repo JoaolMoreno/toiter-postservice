@@ -16,6 +16,9 @@ public class PostCreatedEvent {
         this.repostParentId = repostParentId;
     }
 
+    public PostCreatedEvent() {
+    }
+
     public Long getPostId() {
         return postId;
     }
