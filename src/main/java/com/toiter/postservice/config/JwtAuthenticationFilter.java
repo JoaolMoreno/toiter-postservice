@@ -35,6 +35,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         final String authHeader = request.getHeader("Authorization");
 
+        // Ignorar validação para rotas públicas
+        if (path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // Validação para /internal/** com token compartilhado
         if (path.startsWith("/internal/")) {
             if (authHeader == null || !authHeader.equals("Bearer " + sharedKey)) {
