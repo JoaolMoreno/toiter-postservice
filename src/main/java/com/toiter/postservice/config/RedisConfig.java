@@ -1,5 +1,6 @@
 package com.toiter.postservice.config;
 
+import com.toiter.postservice.model.PostData;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,15 @@ public class RedisConfig {
     @Bean
     public RedisTemplate<String, Long> redisTemplateForLong(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Long> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        return template;
+    }
+
+    @Bean
+    public RedisTemplate<String, PostData> redisTemplateForPostData(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, PostData> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
