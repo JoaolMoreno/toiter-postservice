@@ -1,6 +1,7 @@
 package com.toiter.postservice.controller;
 
 import com.toiter.postservice.entity.Post;
+import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
 import com.toiter.postservice.service.JwtService;
 import com.toiter.postservice.service.PostService;
@@ -70,8 +71,8 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping("/{id}")
-    public ResponseEntity<Post> getPostById(@PathVariable Long id) {
-        Post post = postService.getPostById(id)
+    public ResponseEntity<PostData> getPostById(@PathVariable Long id) {
+        PostData post = postService.getPostById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
         return ResponseEntity.ok(post);
     }
@@ -91,7 +92,7 @@ public class PostController {
             @RequestParam @Parameter(description = "Número da página") int page,
             @RequestParam @Parameter(description = "Tamanho da página") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postService.getPostsByParentPostId(parentPostId, pageable);
+        Page<PostData> posts = postService.getPostsByParentPostId(parentPostId, pageable);
         return buildResponse(posts);
     }
 
@@ -110,7 +111,7 @@ public class PostController {
             @RequestParam @Parameter(description = "Número da página") int page,
             @RequestParam @Parameter(description = "Tamanho da página") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Post> posts = postService.getPostsByUser(username, pageable);
+        Page<PostData> posts = postService.getPostsByUser(username, pageable);
         return buildResponse(posts);
     }
 
@@ -132,7 +133,7 @@ public class PostController {
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
-        Post existingPost = postService.getPostById(id)
+        PostData existingPost = postService.getPostById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
 
         if (!existingPost.getUserId().equals(userId)) {
@@ -143,7 +144,7 @@ public class PostController {
         return ResponseEntity.noContent().build();
     }
 
-    private Map<String, Object> buildResponse(Page<Post> posts) {
+    private Map<String, Object> buildResponse(Page<PostData> posts) {
         Map<String, Object> response = new HashMap<>();
         response.put("content", posts.getContent());
         response.put("page", posts.getNumber());
