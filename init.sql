@@ -16,10 +16,11 @@ CREATE TABLE pst.posts (
                            id BIGSERIAL PRIMARY KEY,
                            parent_post_id BIGINT,
                            repost_parent_post_id BIGINT,
-                           user_id BIGINT NOT NULL,
+                           user_id BIGINT,
                            content TEXT NOT NULL,
                            media_url TEXT,
-                           created_at TIMESTAMP DEFAULT NOW()
+                           created_at TIMESTAMP DEFAULT NOW(),
+                           deleted_at TIMESTAMP
 );
 
 -- Adicionar constraint para parent_post_id referenciando pst.posts(id)
