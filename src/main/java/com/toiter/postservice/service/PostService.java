@@ -57,6 +57,7 @@ public class PostService {
 
         Post newPost = new Post(
                 post.parentPostId(),
+                post.repostParentId(),
                 userId,
                 post.content(),
                 post.mediaUrl()
@@ -74,20 +75,23 @@ public class PostService {
         }
     }
 
-
     public Optional<PostData> getPostById(Long id) {
+        logger.debug("Fetching post data for ID: {}", id);
         PostData postData;
         postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + id);
         if (postData != null) {
+            logger.debug("Post data found in cache for ID: {}", id);
             redisTemplateForPostData.expire(POST_ID_DATA_KEY_PREFIX + id, Duration.ofHours(1));
             return Optional.of(postData);
         }
-        Optional<Post> post =  postRepository.findById(id);
+        logger.debug("Post data not found in cache for ID: {}", id);
+        Optional<PostData> post = postRepository.fetchPostData(id);
         if (post.isPresent()) {
-            postData = new PostData(post.get());
-            redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + id, postData, Duration.ofHours(1));
-            return Optional.of(postData);
+            logger.debug("Post data found in database for ID: {}", id);
+            redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + id, post.get(), Duration.ofHours(1));
+            return post;
         }
+        logger.debug("Post data not found in database for ID: {}", id);
         return Optional.empty();
     }
 
@@ -107,16 +111,14 @@ public class PostService {
 
         // Se a quantidade de posts no Redis for insuficiente, buscar no banco
         if (cachedPosts == null || cachedPosts.size() < pageable.getPageSize()) {
-            Page<Post> dbPosts = postRepository.findByParentPostId(parentPostId, pageable);
-
-            // Converter os posts do banco para PostData e cachear
-            List<PostData> postsToCache = dbPosts.getContent().stream().map(PostData::new).toList();
+            Page<PostData> posts = postRepository.fetchChildPostsData(parentPostId, pageable);
 
             // Adicionar os posts ao cache
-            redisTemplateForPostData.opsForList().rightPushAll(postParentDataKey, postsToCache);
+            redisTemplateForPostData.delete(postParentDataKey);
+            redisTemplateForPostData.opsForList().rightPushAll(postParentDataKey, posts.getContent());
             redisTemplateForPostData.expire(postParentDataKey, Duration.ofHours(1));
 
-            return dbPosts.map(PostData::new);
+            return posts;
         }
 
         // Retornar os dados do Redis como um Page
