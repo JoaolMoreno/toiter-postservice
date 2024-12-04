@@ -12,8 +12,11 @@ public class View {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "post_id", nullable = false)
+    private Long postId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", nullable = false)
+    @JoinColumn(name = "post_id", nullable = false, updatable = false, insertable = false, referencedColumnName = "id")
     private Post post;
 
     @Column(name = "user_id", nullable = false)
@@ -60,5 +63,13 @@ public class View {
 
     public void setCreatedDate(LocalDateTime createdDate) {
         this.createdDate = createdDate;
+    }
+
+    public Long getPostId() {
+        return postId;
+    }
+
+    public void setPostId(Long postId) {
+        this.postId = postId;
     }
 }

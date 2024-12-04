@@ -12,8 +12,11 @@ public class Like {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "post_id", nullable = false)
+    private Long postId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", nullable = false)
+    @JoinColumn(name = "post_id", nullable = false, updatable = false, insertable = false, referencedColumnName = "id")
     private Post post;
 
     @Column(name = "user_id", nullable = false)
@@ -22,12 +25,17 @@ public class Like {
     @Column(name = "created_date", nullable = false, updatable = false)
     private LocalDateTime createdDate;
 
+    public Like() {
+    }
+
+    public Like(Long postId, Long userId) {
+        this.postId = postId;
+        this.userId = userId;
+    }
+
     @PrePersist
     public void prePersist() {
         this.createdDate = LocalDateTime.now();
-    }
-
-    public Like() {
     }
 
     public Long getId() {
@@ -60,5 +68,13 @@ public class Like {
 
     public void setCreatedDate(LocalDateTime createdDate) {
         this.createdDate = createdDate;
+    }
+
+    public Long getPostId() {
+        return postId;
+    }
+
+    public void setPostId(Long postId) {
+        this.postId = postId;
     }
 }
