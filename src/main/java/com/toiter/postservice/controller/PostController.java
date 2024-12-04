@@ -3,6 +3,7 @@ package com.toiter.postservice.controller;
 import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
+import com.toiter.postservice.model.PostThread;
 import com.toiter.postservice.service.JwtService;
 import com.toiter.postservice.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.security.core.Authentication;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
@@ -94,6 +96,24 @@ public class PostController {
         Pageable pageable = PageRequest.of(page, size);
         Page<PostData> posts = postService.getPostsByParentPostId(parentPostId, pageable);
         return buildResponse(posts);
+    }
+
+    @Operation(summary = "Obter thread de posts pelo ID do post pai com paginação",
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Thread de posts encontrada",
+                    content = { @Content(mediaType = "application/json") }),
+            @ApiResponse(responseCode = "404", description = "Thread de posts não encontrada",
+                    content = @Content)
+    })
+    @GetMapping("/thread/{parentPostId}")
+    public PostThread getThreadByParentPostId(
+            @PathVariable Long parentPostId,
+            @RequestParam @NotNull @Parameter(description = "Número da página") int page,
+            @RequestParam @NotNull @Parameter(description = "Tamanho da página") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return postService.getPostThread(parentPostId, pageable);
     }
 
     @Operation(summary = "Obter posts pelo ID do usuário com paginação",

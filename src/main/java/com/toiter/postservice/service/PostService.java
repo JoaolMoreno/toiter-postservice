@@ -4,6 +4,7 @@ import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.model.PostCreatedEvent;
 import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
+import com.toiter.postservice.model.PostThread;
 import com.toiter.postservice.producer.KafkaProducer;
 import com.toiter.postservice.repository.PostRepository;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
@@ -101,26 +102,29 @@ public class PostService {
         long start = pageable.getOffset();
         long end = start + pageable.getPageSize() - 1;
 
+        // Buscar os posts filhos do Redis
         List<PostData> cachedPosts = redisTemplateForPostData.opsForList().range(postParentDataKey, start, end);
 
-        if (cachedPosts == null || cachedPosts.isEmpty()) {
+        // Se a quantidade de posts no Redis for insuficiente, buscar no banco
+        if (cachedPosts == null || cachedPosts.size() < pageable.getPageSize()) {
             Page<Post> dbPosts = postRepository.findByParentPostId(parentPostId, pageable);
+
+            // Converter os posts do banco para PostData e cachear
             List<PostData> postsToCache = dbPosts.getContent().stream().map(PostData::new).toList();
 
-            for (PostData post : postsToCache) {
-                redisTemplateForPostData.opsForList().rightPush(postParentDataKey, post);
-            }
+            // Adicionar os posts ao cache
+            redisTemplateForPostData.opsForList().rightPushAll(postParentDataKey, postsToCache);
             redisTemplateForPostData.expire(postParentDataKey, Duration.ofHours(1));
 
             return dbPosts.map(PostData::new);
         }
 
-        Long size = redisTemplateForPostData.opsForList().size(postParentDataKey);
-        size = (size != null) ? size : 0;
+        // Retornar os dados do Redis como um Page
+        Long totalElements = redisTemplateForPostData.opsForList().size(postParentDataKey);
+        totalElements = (totalElements != null) ? totalElements : 0;
 
-        return new PageImpl<>(cachedPosts, pageable, size);
+        return new PageImpl<>(cachedPosts, pageable, totalElements);
     }
-
 
     public void deletePost(Long id) {
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post not found"));
@@ -140,6 +144,46 @@ public class PostService {
             logger.error("Failed to send event to Kafka", e);
             throw new RuntimeException("Failed to send event to Kafka");
         }
+    }
+
+    public PostThread getPostThread(Long parentPostId, Pageable pageable) {
+        PostData parentPost = getPostById(parentPostId)
+                .orElseThrow(() -> new ResourceNotFoundException("Parent post not found"));
+
+        Page<PostData> childPostsPage = getPostsByParentPostId(parentPostId, pageable);
+
+        List<PostThread.ChildPost> childPostsWithIds = childPostsPage.getContent().stream()
+                .map(childPost -> {
+                    List<Long> childIds = getChildPostIds(childPost.getId());
+                    return new PostThread.ChildPost(childPost, childIds);
+                })
+                .toList();
+
+        boolean hasNext = childPostsPage.hasNext();
+        long totalElements = childPostsPage.getTotalElements();
+        int totalPages = childPostsPage.getTotalPages();
+        int pageSize = childPostsPage.getSize();
+        int currentPage = childPostsPage.getNumber();
+
+        return new PostThread(parentPost, childPostsWithIds, hasNext, totalElements, totalPages, pageSize, currentPage);
+    }
+
+
+    private List<Long> getChildPostIds(Long parentPostId) {
+        String childIdsKey = "post:childids:" + parentPostId;
+
+        List<PostData> cachedChildPosts = redisTemplateForPostData.opsForList().range(childIdsKey, 0, -1);
+        List<Long> childIds;
+
+        if (cachedChildPosts != null && !cachedChildPosts.isEmpty()) {
+            redisTemplateForPostData.expire(childIdsKey, Duration.ofHours(1));
+            return cachedChildPosts.stream().map(PostData::getId).toList();
+        }
+
+        childIds = postRepository.findChildIdsByParentPostId(parentPostId,Pageable.ofSize(3));
+
+        // TODO: enviar um evento para popular o cache em segundo plano passando childIds
+        return childIds;
     }
 }
 
