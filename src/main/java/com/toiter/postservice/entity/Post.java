@@ -123,4 +123,19 @@ public class Post {
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
     }
+
+    @Override
+    public String toString() {
+        return "Post{" +
+                "id=" + id +
+                ", parentPostId=" + parentPostId +
+                ", repostParentId=" + repostParentId +
+                ", userId=" + userId +
+                ", content='" + content + '\'' +
+                ", mediaUrl='" + mediaUrl + '\'' +
+                ", createdAt=" + createdAt +
+                ", deletedAt=" + deletedAt +
+                ", deleted=" + deleted +
+                '}';
+    }
 }
