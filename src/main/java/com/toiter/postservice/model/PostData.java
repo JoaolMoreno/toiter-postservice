@@ -26,6 +26,8 @@ public class PostData {
 
     private Integer likesCount = 0;
 
+    private Integer repliesCount = 0;
+
     private Integer repostsCount = 0;
 
     private Integer viewCount = 0;
@@ -153,5 +155,13 @@ public class PostData {
 
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
+    }
+
+    public Integer getRepliesCount() {
+        return repliesCount;
+    }
+
+    public void setRepliesCount(Integer repliesCount) {
+        this.repliesCount = repliesCount;
     }
 }
