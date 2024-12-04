@@ -39,8 +39,9 @@ public class Post {
     public Post() {
     }
 
-    public Post(Long parentPostId, Long userId, String content, String mediaUrl) {
+    public Post(Long parentPostId, Long repostParentId, Long userId, String content, String mediaUrl) {
         this.parentPostId = parentPostId;
+        this.repostParentId = repostParentId;
         this.userId = userId;
         this.content = content;
         this.mediaUrl = mediaUrl;
