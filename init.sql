@@ -20,7 +20,8 @@ CREATE TABLE pst.posts (
                            content TEXT NOT NULL,
                            media_url TEXT,
                            created_at TIMESTAMP DEFAULT NOW(),
-                           deleted_at TIMESTAMP
+                           deleted_at TIMESTAMP,
+                           deleted BOOLEAN DEFAULT FALSE
 );
 
 -- Adicionar constraint para parent_post_id referenciando pst.posts(id)
