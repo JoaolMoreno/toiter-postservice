@@ -40,6 +40,23 @@ public class PostData {
     public PostData() {
     }
 
+    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId,
+                    String content, String mediaUrl, Long likesCount,
+                    Long repliesCount, Long repostsCount, Long viewCount,
+                    LocalDateTime createdAt) {
+        this.id = id;
+        this.parentPostId = parentPostId;
+        this.repostParentId = repostParentId;
+        this.userId = userId;
+        this.content = content;
+        this.mediaUrl = mediaUrl;
+        this.likesCount = likesCount.intValue();
+        this.repliesCount = repliesCount.intValue();
+        this.repostsCount = repostsCount.intValue();
+        this.viewCount = viewCount.intValue();
+        this.createdAt = createdAt;
+    }
+
     public PostData(Post post){
         this.id = post.getId();
         this.parentPostId = post.getParentPostId();
