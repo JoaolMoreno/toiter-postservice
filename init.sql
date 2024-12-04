@@ -52,7 +52,8 @@ CREATE TABLE pst.like (
                           id BIGSERIAL PRIMARY KEY,       -- Identificador único
                           user_id BIGINT NOT NULL,        -- ID do usuário que curtiu
                           post_id BIGINT NOT NULL,        -- ID da postagem curtida
-                          created_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP -- Data e hora da curtida
+                          created_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Data e hora da curtida
+                          unique (user_id, post_id)
 );
 
 -- Index para melhorar a performance em consultas
@@ -71,14 +72,15 @@ ALTER TABLE pst.like
         FOREIGN KEY (post_id)
             REFERENCES pst.posts(id);
 
+
 -- Tabela 'view'
 CREATE TABLE pst.view (
                           id BIGSERIAL PRIMARY KEY,       -- Identificador único
                           user_id BIGINT NOT NULL,        -- ID do usuário que visualizou
                           post_id BIGINT NOT NULL,        -- ID da postagem visualizada
-                          created_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP -- Data e hora da visualização
+                          created_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Data e hora da visualização
+                          unique (user_id, post_id)
 );
-
 -- Index para melhorar a performance em consultas
 CREATE INDEX idx_view_user_post ON pst.view (user_id, post_id);
 
