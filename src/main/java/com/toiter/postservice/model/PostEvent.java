@@ -4,4 +4,6 @@ import com.toiter.postservice.entity.Post;
 
 public interface PostEvent {
     Post getPost();
+
+    String toString();
 }

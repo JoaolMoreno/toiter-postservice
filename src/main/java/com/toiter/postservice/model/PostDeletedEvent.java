@@ -21,4 +21,11 @@ public class PostDeletedEvent implements PostEvent {
     public void setPost(Post post) {
         this.post = post;
     }
+
+    @Override
+    public String toString() {
+        return "PostDeletedEvent{" +
+                "post=" + post +
+                '}';
+    }
 }
