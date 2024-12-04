@@ -55,12 +55,15 @@ public class KafkaConsumer {
     @KafkaListener(topics = {"post-created-topic"}, groupId = "post-event-consumers")
     private void incrementReplyRepostCount(PostEvent event) {
         if(event.getPost().getParentPostId() != null) {
+            logger.debug("Incrementing reply count for parent post: {}", event.getPost().getParentPostId());
             PostData parentPostData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + event.getPost().getParentPostId());
             if (parentPostData != null) {
                 parentPostData.setRepliesCount(parentPostData.getRepliesCount() + 1);
                 redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + parentPostData.getId(), parentPostData, Duration.ofHours(1));
             }
-        } else if(event.getPost().getRepostParentId() != null) {
+        }
+        if(event.getPost().getRepostParentId() != null) {
+            logger.debug("Incrementing repost count for parent post: {}", event.getPost().getRepostParentId());
             PostData repostParentData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + event.getPost().getRepostParentId());
             if (repostParentData != null) {
                 repostParentData.setRepostsCount(repostParentData.getRepostsCount() + 1);
