@@ -1,13 +1,14 @@
 package com.toiter.postservice.consumer;
 
-import com.toiter.postservice.model.PostData;
-import com.toiter.postservice.model.PostDeletedEvent;
-import com.toiter.postservice.model.PostEvent;
+import com.toiter.postservice.model.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import org.w3c.dom.events.Event;
 
 import java.time.Duration;
 
@@ -50,12 +51,15 @@ public class KafkaConsumer {
             redisTemplateForPostData.opsForList().rightPush(postRepostDataKey, postData);
             redisTemplateForPostData.expire(postRepostDataKey, Duration.ofHours(1));
         }
+
+        if(event instanceof PostCreatedEvent) {
+            incrementReplyRepostCount(event);
+        }
     }
 
-    @KafkaListener(topics = {"post-created-topic"}, groupId = "post-event-consumers")
     private void incrementReplyRepostCount(PostEvent event) {
+        logger.debug("Incrementing reply and repost count for post: {}", event.getPost().toString());
         if(event.getPost().getParentPostId() != null) {
-            logger.debug("Incrementing reply count for parent post: {}", event.getPost().getParentPostId());
             PostData parentPostData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + event.getPost().getParentPostId());
             if (parentPostData != null) {
                 parentPostData.setRepliesCount(parentPostData.getRepliesCount() + 1);
@@ -63,12 +67,31 @@ public class KafkaConsumer {
             }
         }
         if(event.getPost().getRepostParentId() != null) {
-            logger.debug("Incrementing repost count for parent post: {}", event.getPost().getRepostParentId());
+            logger.debug("Incrementing repost count for parent post: {}", event.getPost().toString());
             PostData repostParentData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + event.getPost().getRepostParentId());
             if (repostParentData != null) {
                 repostParentData.setRepostsCount(repostParentData.getRepostsCount() + 1);
                 redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + repostParentData.getId(), repostParentData, Duration.ofHours(1));
             }
+        }
+    }
+
+    @KafkaListener(topics = "like-events-topic", groupId = "like-event-consumers")
+    private void processLikeEvent(LikeEvent event) {
+        logger.debug("Received event: {}", event);
+        switch (event){
+            case PostLikedEvent ignored -> incrementLikeCount(event, 1);
+            case PostUnlikedEvent ignored -> incrementLikeCount(event, -1);
+            default -> throw new IllegalStateException("Unexpected value: " + event);
+        }
+    }
+
+    private void incrementLikeCount(LikeEvent event, @Min(-1) @Max(1) int increment) {
+        logger.debug("Incrementing like count for post: {}", event.toString());
+        PostData postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + event.getPostId());
+        if (postData != null) {
+            postData.setLikesCount(postData.getLikesCount() + increment);
+            redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
         }
     }
 }
