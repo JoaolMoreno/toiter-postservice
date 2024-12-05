@@ -158,6 +158,10 @@ public class PostService {
 
         Page<PostData> childPostsPage = getPostsByParentPostId(parentPostId, pageable);
 
+        if(childPostsPage.isEmpty()){
+            return new PostThread(parentPost, List.of(), false, 0, 0, 0, 0);
+        }
+
         List<PostThread.ChildPost> childPostsWithIds = childPostsPage.getContent().stream()
                 .map(childPost -> {
                     List<Long> childIds = getChildPostIds(childPost.getId());
