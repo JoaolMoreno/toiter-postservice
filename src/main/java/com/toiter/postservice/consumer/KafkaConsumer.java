@@ -94,4 +94,14 @@ public class KafkaConsumer {
             redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
         }
     }
+
+    @KafkaListener(topics = "post-viewed-topic", groupId = "view-event-consumers")
+    private void processViewEvent(PostViewedEvent event) {
+        logger.debug("Received event: {}", event);
+        PostData postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + event.getPostId());
+        if (postData != null) {
+            postData.setViewCount(postData.getViewCount() + 1);
+            redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
+        }
+    }
 }
