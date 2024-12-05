@@ -1,15 +1,17 @@
 package com.toiter.postservice.service;
 
+import com.toiter.postservice.entity.Like;
 import com.toiter.postservice.entity.Post;
-import com.toiter.postservice.model.PostCreatedEvent;
-import com.toiter.postservice.model.PostData;
-import com.toiter.postservice.model.PostRequest;
-import com.toiter.postservice.model.PostThread;
+import com.toiter.postservice.entity.View;
+import com.toiter.postservice.model.*;
 import com.toiter.postservice.producer.KafkaProducer;
 import com.toiter.postservice.repository.PostRepository;
+import com.toiter.postservice.repository.ViewRepository;
+import jakarta.validation.constraints.NotNull;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -33,12 +35,14 @@ public class PostService {
     private final String POST_PARENTID_DATA_KEY_PREFIX = "post:parentid:";
     private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
+    private final ViewRepository viewRepository;
 
-    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, RedisTemplate<String, PostData> redisTemplateForPostData) {
+    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, RedisTemplate<String, PostData> redisTemplateForPostData, ViewRepository viewRepository) {
         this.userClientService = userClientService;
         this.postRepository = postRepository;
         this.kafkaProducer = kafkaProducer;
         this.redisTemplateForPostData = redisTemplateForPostData;
+        this.viewRepository = viewRepository;
     }
 
     @Transactional
@@ -186,6 +190,29 @@ public class PostService {
 
         // TODO: enviar um evento para popular o cache em segundo plano passando childIds
         return childIds;
+    }
+
+    @Transactional
+    public void viewPost(@NotNull(message = "Post ID cant be NULL") Long postId, Long userId) {
+        String redisKey = POST_ID_DATA_KEY_PREFIX + postId;
+
+        PostData postData = redisTemplateForPostData.opsForValue().get(redisKey);
+
+        if (postData != null && postData.isDeleted()) {
+            return;
+        }
+
+        try {
+            View view = new View(
+                    postId,
+                    userId
+            );
+            viewRepository.save(view);
+
+            kafkaProducer.sendPostViewedEvent(new PostViewedEvent(postId, userId));
+
+        } catch (DataIntegrityViolationException _) {
+        }
     }
 }
 
