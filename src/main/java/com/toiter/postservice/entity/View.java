@@ -1,7 +1,6 @@
 package com.toiter.postservice.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +26,8 @@ public class View {
     private LocalDateTime createdDate;
 
     public View(Long postId, Long userId) {
+        this.postId = postId;
+        this.userId = userId;
     }
 
     @PrePersist
