@@ -2,6 +2,7 @@ package com.toiter.postservice.config;
 
 import com.toiter.postservice.model.LikeEvent;
 import com.toiter.postservice.model.PostCreatedEvent;
+import com.toiter.postservice.model.PostViewedEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -42,6 +43,11 @@ public class KafkaConfig {
     }
 
     @Bean
+    public ProducerFactory<String, PostViewedEvent> producerFactoryForPostViewedEvent() {
+        return producerFactory(PostViewedEvent.class, "post-view-transaction");
+    }
+
+    @Bean
     public ProducerFactory<String, PostCreatedEvent> producerFactory() {
         return producerFactory(PostCreatedEvent.class, "post-transaction");
     }
@@ -76,6 +82,16 @@ public class KafkaConfig {
     }
 
     @Bean
+    public ConsumerFactory<String, PostViewedEvent> consumerFactoryForPostViewedEvent() {
+        return consumerFactory(PostViewedEvent.class, "view-service-group");
+    }
+
+    @Bean
+    public KafkaTemplate<String, PostViewedEvent> kafkaTemplateForPostViewedEvent(ProducerFactory<String, PostViewedEvent> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
     public KafkaTemplate<String, PostCreatedEvent> kafkaTemplate(ProducerFactory<String, PostCreatedEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
@@ -96,6 +112,13 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, LikeEvent> kafkaListenerContainerFactoryForLikedEvent() {
         ConcurrentKafkaListenerContainerFactory<String, LikeEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactoryForLikedEvent());
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, PostViewedEvent> kafkaListenerContainerFactoryForPostViewedEvent() {
+        ConcurrentKafkaListenerContainerFactory<String, PostViewedEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactoryForPostViewedEvent());
         return factory;
     }
 }
