@@ -5,6 +5,7 @@ import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
 import com.toiter.postservice.model.PostThread;
 import com.toiter.postservice.service.JwtService;
+import com.toiter.postservice.service.LikeService;
 import com.toiter.postservice.service.PostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,10 +33,12 @@ import java.util.Map;
 public class PostController {
 
     private final PostService postService;
+    private final LikeService likeService;
     private final JwtService jwtService;
 
-    public PostController(PostService postService, JwtService jwtService) {
+    public PostController(PostService postService, LikeService likeService, JwtService jwtService) {
         this.postService = postService;
+        this.likeService = likeService;
         this.jwtService = jwtService;
     }
 
@@ -172,5 +175,75 @@ public class PostController {
         response.put("totalElements", posts.getTotalElements());
         response.put("totalPages", posts.getTotalPages());
         return response;
+    }
+
+    @Operation(summary = "Curtir um post",
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Post curtido",
+                    content = @Content),
+            @ApiResponse(responseCode = "400", description = "Entrada inválida",
+                    content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content),
+            @ApiResponse(responseCode = "404", description = "Post não encontrado",
+                    content = @Content)
+    })
+    @PostMapping("/{id}/like")
+    public ResponseEntity<Void> likePost(
+            @PathVariable @NotNull(message = "Post ID cant be NULL") Long id,
+            Authentication authentication) {
+
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
+        likeService.likePost(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Descurtir um post",
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Post descurtido",
+                    content = @Content),
+            @ApiResponse(responseCode = "400", description = "Entrada inválida",
+                    content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content),
+            @ApiResponse(responseCode = "404", description = "Post não encontrado",
+                    content = @Content)
+    })
+    @DeleteMapping("/{id}/like")
+    public ResponseEntity<Void> unlikePost(
+            @PathVariable @NotNull(message = "Post ID cant be NULL") Long id,
+            Authentication authentication) {
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
+        likeService.unlikePost(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "registra a visualização de um post",
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Post visualizado",
+                    content = @Content),
+            @ApiResponse(responseCode = "400", description = "Entrada inválida",
+                    content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content),
+            @ApiResponse(responseCode = "404", description = "Post não encontrado",
+                    content = @Content)
+    })
+    @PostMapping("/{id}/view")
+    public ResponseEntity<Void> viewPost(
+            @PathVariable @NotNull(message = "Post ID cant be NULL") Long id,
+            Authentication authentication) {
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
+        postService.viewPost(id, userId);
+        return ResponseEntity.noContent().build();
     }
 }
