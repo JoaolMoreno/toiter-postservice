@@ -1,6 +1,5 @@
 package com.toiter.postservice.service;
 
-import com.toiter.postservice.entity.Like;
 import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.entity.View;
 import com.toiter.postservice.model.*;
@@ -79,8 +78,8 @@ public class PostService {
         }
     }
 
-    public Optional<PostData> getPostById(Long id) {
-        logger.debug("Fetching post data for ID: {}", id);
+    public Optional<PostData> getPostById(Long id, int depth) {
+        logger.debug("Fetching post data for ID: {}, depth: {}", id, depth);
         PostData postData;
         postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + id);
         if (postData != null) {
@@ -91,6 +90,15 @@ public class PostService {
         logger.debug("Post data not found in cache for ID: {}", id);
         Optional<PostData> post = postRepository.fetchPostData(id);
         if (post.isPresent()) {
+            if(post.get().isDeleted()){
+                return Optional.empty();
+            }
+
+            if(post.get().getRepostParentId() != null && depth == 0){
+                Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1);
+                repostedPostData.ifPresent(post.get()::setRepostPostData);
+            }
+
             logger.debug("Post data found in database for ID: {}", id);
             redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + id, post.get(), Duration.ofHours(1));
             return post;
@@ -101,8 +109,7 @@ public class PostService {
 
     public Page<PostData> getPostsByUser(String username, Pageable pageable) {
         Long userId = userClientService.getUserIdByUsername(username);
-        Page<Post> post = postRepository.findByUserId(userId, pageable);
-        return post.map(PostData::new);
+        return postRepository.fetchPostsByUserId(userId, pageable);
     }
 
     public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable) {
@@ -153,7 +160,7 @@ public class PostService {
     }
 
     public PostThread getPostThread(Long parentPostId, Pageable pageable) {
-        PostData parentPost = getPostById(parentPostId)
+        PostData parentPost = getPostById(parentPostId, 0)
                 .orElseThrow(() -> new ResourceNotFoundException("Parent post not found"));
 
         Page<PostData> childPostsPage = getPostsByParentPostId(parentPostId, pageable);

@@ -32,6 +32,8 @@ public class PostData {
 
     private Integer viewCount = 0;
 
+    private PostData repostPostData;
+
     @JsonIgnore
     private boolean deleted;
 
@@ -180,5 +182,13 @@ public class PostData {
 
     public void setRepliesCount(Integer repliesCount) {
         this.repliesCount = repliesCount;
+    }
+
+    public PostData getRepostPostData() {
+        return repostPostData;
+    }
+
+    public void setRepostPostData(PostData repostPostData) {
+        this.repostPostData = repostPostData;
     }
 }

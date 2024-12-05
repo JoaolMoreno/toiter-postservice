@@ -1,6 +1,7 @@
 package com.toiter.postservice.consumer;
 
 import com.toiter.postservice.model.*;
+import com.toiter.postservice.service.PostService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
@@ -8,19 +9,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.events.Event;
-
 import java.time.Duration;
+import java.util.Optional;
 
 @Service
 public class KafkaConsumer {
     private final Logger logger = LoggerFactory.getLogger(KafkaConsumer.class);
+    private final PostService postService;
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final String POST_ID_DATA_KEY_PREFIX = "post:id:";
     private final String POST_PARENTID_DATA_KEY_PREFIX = "post:parentid:";
     private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
 
-    public KafkaConsumer(RedisTemplate<String, PostData> redisTemplateForPostData) {
+    public KafkaConsumer(PostService postService, RedisTemplate<String, PostData> redisTemplateForPostData) {
+        this.postService = postService;
         this.redisTemplateForPostData = redisTemplateForPostData;
     }
 
@@ -36,7 +38,6 @@ public class KafkaConsumer {
 
         // Save by Post ID
         String postPublicDataKey = POST_ID_DATA_KEY_PREFIX + postData.getId();
-        redisTemplateForPostData.opsForValue().set(postPublicDataKey, postData, Duration.ofHours(1));
 
         // Save by Parent ID
         if (postData.getParentPostId() != null) {
@@ -50,7 +51,12 @@ public class KafkaConsumer {
             String postRepostDataKey = POST_REPOSTID_DATA_KEY_PREFIX + postData.getRepostParentId();
             redisTemplateForPostData.opsForList().rightPush(postRepostDataKey, postData);
             redisTemplateForPostData.expire(postRepostDataKey, Duration.ofHours(1));
+
+            // Save reposted post data
+            Optional<PostData> repostedPostData = postService.getPostById(postData.getRepostParentId(),0);
+            repostedPostData.ifPresent(postData::setRepostPostData);
         }
+        redisTemplateForPostData.opsForValue().set(postPublicDataKey, postData, Duration.ofHours(1));
 
         if(event instanceof PostCreatedEvent) {
             incrementReplyRepostCount(event);

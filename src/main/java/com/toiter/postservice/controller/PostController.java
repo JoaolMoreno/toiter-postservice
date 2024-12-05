@@ -77,7 +77,7 @@ public class PostController {
     })
     @GetMapping("/{id}")
     public ResponseEntity<PostData> getPostById(@PathVariable Long id) {
-        PostData post = postService.getPostById(id)
+        PostData post = postService.getPostById(id,0)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
         return ResponseEntity.ok(post);
     }
@@ -156,7 +156,7 @@ public class PostController {
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
-        PostData existingPost = postService.getPostById(id)
+        PostData existingPost = postService.getPostById(id,0)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
 
         if (!existingPost.getUserId().equals(userId)) {
