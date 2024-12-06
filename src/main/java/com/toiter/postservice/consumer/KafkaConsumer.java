@@ -2,6 +2,7 @@ package com.toiter.postservice.consumer;
 
 import com.toiter.postservice.model.*;
 import com.toiter.postservice.service.PostService;
+import com.toiter.postservice.service.UserClientService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
@@ -16,13 +17,15 @@ import java.util.Optional;
 public class KafkaConsumer {
     private final Logger logger = LoggerFactory.getLogger(KafkaConsumer.class);
     private final PostService postService;
+    private final UserClientService userClientService;
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final String POST_ID_DATA_KEY_PREFIX = "post:id:";
     private final String POST_PARENTID_DATA_KEY_PREFIX = "post:parentid:";
     private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
 
-    public KafkaConsumer(PostService postService, RedisTemplate<String, PostData> redisTemplateForPostData) {
+    public KafkaConsumer(PostService postService, UserClientService userClientService, RedisTemplate<String, PostData> redisTemplateForPostData) {
         this.postService = postService;
+        this.userClientService = userClientService;
         this.redisTemplateForPostData = redisTemplateForPostData;
     }
 
@@ -38,6 +41,9 @@ public class KafkaConsumer {
 
         // Save by Post ID
         String postPublicDataKey = POST_ID_DATA_KEY_PREFIX + postData.getId();
+
+        String username = userClientService.getUsernameById(postData.getUserId());
+        postData.setUsername(username);
 
         // Save by Parent ID
         if (postData.getParentPostId() != null) {

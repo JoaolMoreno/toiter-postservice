@@ -28,6 +28,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.parentPostId,
             p.repostParentId,
             p.userId,
+            u.username,
             p.content,
             p.mediaUrl,
             COUNT(DISTINCT l.id) as likesCount,
@@ -37,6 +38,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.createdAt
         )
         FROM Post p
+        JOIN User u ON u.id = p.userId
         LEFT JOIN Like l ON l.post.id = p.id
         LEFT JOIN Post r ON r.parentPostId = p.id
         LEFT JOIN Post rp ON rp.repostParentId = p.id
@@ -52,6 +54,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.parentPostId,
             p.repostParentId,
             p.userId,
+            u.username,
             p.content,
             p.mediaUrl,
             COUNT(DISTINCT l.id) as likesCount,
@@ -61,6 +64,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.createdAt
         )
         FROM Post p
+        JOIN User u ON u.id = p.userId
         LEFT JOIN Like l ON l.post.id = p.id
         LEFT JOIN Post r ON r.parentPostId = p.id
         LEFT JOIN Post rp ON rp.repostParentId = p.id
@@ -76,6 +80,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.parentPostId,
             p.repostParentId,
             p.userId,
+            u.username,
             p.content,
             p.mediaUrl,
             COUNT(DISTINCT l.id) as likesCount,
@@ -85,6 +90,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.createdAt
         )
         FROM Post p
+        JOIN User u ON u.id = p.userId
         LEFT JOIN Like l ON l.post.id = p.id
         LEFT JOIN Post r ON r.parentPostId = p.id
         LEFT JOIN Post rp ON rp.repostParentId = p.id

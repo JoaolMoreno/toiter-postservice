@@ -65,5 +65,33 @@ public class UserClientService {
 
         return userId;
     }
-}
 
+    public String getUsernameById(Long userId) {
+        String usernameKey = USERNAME_TO_ID_KEY_PREFIX + "username:" + userId;
+        ValueOperations<String, Long> valueOpsForLong = redisTemplateForLong.opsForValue();
+        Number rawValue = valueOpsForLong.get(usernameKey);
+        String username = rawValue != null ? rawValue.toString() : null;
+
+        if (username == null) {
+            logger.debug("Username not found in cache, fetching from user service");
+            String url = userServiceUrl + "/users/" + userId + "/username";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + sharedKey);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            username = response.getBody();
+
+            if(username == null) {
+                throw new RuntimeException("User not found");
+            }
+
+            valueOpsForLong.set(usernameKey, Long.parseLong(username));
+        } else {
+            logger.debug("Username found in cache");
+        }
+        valueOpsForLong.getOperations().expire(usernameKey, Duration.ofHours(1));
+
+        return username;
+    }
+}

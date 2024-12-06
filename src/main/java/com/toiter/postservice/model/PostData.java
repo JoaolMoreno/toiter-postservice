@@ -18,7 +18,10 @@ public class PostData {
 
     private Boolean isReply;
 
+    @JsonIgnore
     private Long userId;
+
+    private String username;
 
     private String content;
 
@@ -42,7 +45,7 @@ public class PostData {
     public PostData() {
     }
 
-    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId,
+    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId, String username,
                     String content, String mediaUrl, Long likesCount,
                     Long repliesCount, Long repostsCount, Long viewCount,
                     LocalDateTime createdAt) {
@@ -190,5 +193,13 @@ public class PostData {
 
     public void setRepostPostData(PostData repostPostData) {
         this.repostPostData = repostPostData;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 }
