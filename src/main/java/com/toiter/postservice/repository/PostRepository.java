@@ -44,7 +44,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         LEFT JOIN Post rp ON rp.repostParentId = p.id
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.id = :postId and p.deleted = false
-        GROUP BY p.id
+        GROUP BY p.id, u.username
     """)
     Optional<PostData> fetchPostData(Long postId);
 
@@ -70,7 +70,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         LEFT JOIN Post rp ON rp.repostParentId = p.id
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.parentPostId = :parentPostId
-        GROUP BY p.id
+        GROUP BY p.id, u.username
     """)
     Page<PostData> fetchChildPostsData(Long parentPostId, Pageable pageable);
 
@@ -96,7 +96,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         LEFT JOIN Post rp ON rp.repostParentId = p.id
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.userId = :userId and p.deleted = false
-        GROUP BY p.id
+        GROUP BY p.id, u.username
         ORDER BY p.createdAt DESC
     """)
     Page<PostData> fetchPostsByUserId(Long userId, Pageable pageable);
