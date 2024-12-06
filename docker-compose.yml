@@ -163,7 +163,7 @@ services:
 
   nginx:
     image: nginx:latest
-    container_name: nginx-proxy
+    container_name: nginx-proxy-p
     ports:
       - "80:80"
     volumes:
