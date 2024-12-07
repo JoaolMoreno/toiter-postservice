@@ -28,7 +28,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.parentPostId,
             p.repostParentId,
             p.userId,
-            u.username,
             p.content,
             p.mediaUrl,
             COUNT(DISTINCT l.id) as likesCount,
@@ -38,13 +37,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.createdAt
         )
         FROM Post p
-        JOIN User u ON u.id = p.userId
         LEFT JOIN Like l ON l.post.id = p.id
         LEFT JOIN Post r ON r.parentPostId = p.id
         LEFT JOIN Post rp ON rp.repostParentId = p.id
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.id = :postId and p.deleted = false
-        GROUP BY p.id, u.username
+        GROUP BY p.id
     """)
     Optional<PostData> fetchPostData(Long postId);
 
@@ -54,7 +52,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.parentPostId,
             p.repostParentId,
             p.userId,
-            u.username,
             p.content,
             p.mediaUrl,
             COUNT(DISTINCT l.id) as likesCount,
@@ -64,13 +61,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.createdAt
         )
         FROM Post p
-        JOIN User u ON u.id = p.userId
         LEFT JOIN Like l ON l.post.id = p.id
         LEFT JOIN Post r ON r.parentPostId = p.id
         LEFT JOIN Post rp ON rp.repostParentId = p.id
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.parentPostId = :parentPostId
-        GROUP BY p.id, u.username
+        GROUP BY p.id
     """)
     Page<PostData> fetchChildPostsData(Long parentPostId, Pageable pageable);
 
@@ -80,7 +76,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.parentPostId,
             p.repostParentId,
             p.userId,
-            u.username,
             p.content,
             p.mediaUrl,
             COUNT(DISTINCT l.id) as likesCount,
@@ -90,13 +85,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.createdAt
         )
         FROM Post p
-        JOIN User u ON u.id = p.userId
         LEFT JOIN Like l ON l.post.id = p.id
         LEFT JOIN Post r ON r.parentPostId = p.id
         LEFT JOIN Post rp ON rp.repostParentId = p.id
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.userId = :userId and p.deleted = false
-        GROUP BY p.id, u.username
+        GROUP BY p.id
         ORDER BY p.createdAt DESC
     """)
     Page<PostData> fetchPostsByUserId(Long userId, Pageable pageable);
