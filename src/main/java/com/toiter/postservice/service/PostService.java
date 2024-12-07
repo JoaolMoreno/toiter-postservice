@@ -94,6 +94,9 @@ public class PostService {
                 return Optional.empty();
             }
 
+            String username = userClientService.getUsernameById(post.get().getUserId());
+            post.get().setUsername(username);
+
             if(post.get().getRepostParentId() != null && depth == 0){
                 Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1);
                 repostedPostData.ifPresent(post.get()::setRepostPostData);
@@ -109,7 +112,11 @@ public class PostService {
 
     public Page<PostData> getPostsByUser(String username, Pageable pageable) {
         Long userId = userClientService.getUserIdByUsername(username);
-        return postRepository.fetchPostsByUserId(userId, pageable);
+        Page<PostData> posts = postRepository.fetchPostsByUserId(userId, pageable);
+        posts.stream().forEach(post -> {
+            post.setUsername(username);
+        });
+        return posts;
     }
 
     public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable) {
@@ -123,6 +130,10 @@ public class PostService {
         // Se a quantidade de posts no Redis for insuficiente, buscar no banco
         if (cachedPosts == null || cachedPosts.size() < pageable.getPageSize()) {
             Page<PostData> posts = postRepository.fetchChildPostsData(parentPostId, pageable);
+            posts.stream().forEach(post -> {
+                String username = userClientService.getUsernameById(post.getUserId());
+                post.setUsername(username);
+            });
 
             // Adicionar os posts ao cache
             redisTemplateForPostData.delete(postParentDataKey);
