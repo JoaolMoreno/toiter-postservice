@@ -26,14 +26,16 @@ public class UserClientService {
     private String sharedKey;
 
     private final RedisTemplate<String, Long> redisTemplateForLong;
+    private final RedisTemplate<String, String> redisTemplateForString;
 
     private static final String USERNAME_TO_ID_KEY_PREFIX = "user:username:";
 
     private final Logger logger = LoggerFactory.getLogger(UserClientService.class);
 
-    public UserClientService(RestTemplate restTemplate, RedisTemplate<String, Long> redisTemplateForLong) {
+    public UserClientService(RestTemplate restTemplate, RedisTemplate<String, Long> redisTemplateForLong, RedisTemplate<String, String> redisTemplateForString) {
         this.restTemplate = restTemplate;
         this.redisTemplateForLong = redisTemplateForLong;
+        this.redisTemplateForString = redisTemplateForString;
     }
 
     public Long getUserIdByUsername(String username) {
@@ -67,10 +69,9 @@ public class UserClientService {
     }
 
     public String getUsernameById(Long userId) {
-        String usernameKey = USERNAME_TO_ID_KEY_PREFIX + "username:" + userId;
-        ValueOperations<String, Long> valueOpsForLong = redisTemplateForLong.opsForValue();
-        Number rawValue = valueOpsForLong.get(usernameKey);
-        String username = rawValue != null ? rawValue.toString() : null;
+        String usernameKey = USERNAME_TO_ID_KEY_PREFIX + "id:" + userId;
+        ValueOperations<String, String> valueOpsForString = redisTemplateForString.opsForValue();
+        String username = valueOpsForString.get(usernameKey);
 
         if (username == null) {
             logger.debug("Username not found in cache, fetching from user service");
@@ -82,15 +83,15 @@ public class UserClientService {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             username = response.getBody();
 
-            if(username == null) {
+            if (username == null) {
                 throw new RuntimeException("User not found");
             }
 
-            valueOpsForLong.set(usernameKey, Long.parseLong(username));
+            valueOpsForString.set(usernameKey, username);
         } else {
             logger.debug("Username found in cache");
         }
-        valueOpsForLong.getOperations().expire(usernameKey, Duration.ofHours(1));
+        valueOpsForString.getOperations().expire(usernameKey, Duration.ofHours(1));
 
         return username;
     }
