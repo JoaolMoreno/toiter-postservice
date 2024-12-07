@@ -50,8 +50,8 @@ public class JwtService {
     }
 
 
-    public boolean isTokenValid(@NotNull String token,@NotNull String usarname) {
-        return usarname.equals(extractUsername(token)) && !isTokenExpired(token);
+    public boolean isTokenValid(@NotNull String token) {
+        return !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(@NotNull String token) {

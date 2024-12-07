@@ -22,7 +22,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
     @Value("${service.shared-key}")
-    private String sharedKey; // Token compartilhado para endpoints internos
+    private String sharedKey;
 
     public JwtAuthenticationFilter(JwtService jwtService) {
         this.jwtService = jwtService;
@@ -35,61 +35,63 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         final String authHeader = request.getHeader("Authorization");
 
-        // Ignorar validação para rotas públicas
-        if (path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")) {
+        logger.debug(String.format("Path: %s, AuthHeader: %s", path, authHeader));
+
+        // Ignorar validação para rotas públicas (já configuradas no SecurityConfig)
+        if (path.startsWith("/auth/") || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")) {
+            logger.debug("Ignorando validação JWT para rota pública");
             filterChain.doFilter(request, response);
             return;
         }
 
         // Validação para /internal/** com token compartilhado
         if (path.startsWith("/internal/")) {
+            logger.debug("Validando token compartilhado para rota /internal/**");
             if (authHeader == null || !authHeader.equals("Bearer " + sharedKey)) {
+                logger.warn("Acesso não autorizado para /internal/**");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.getWriter().write("Acesso não autorizado para /internal/**");
                 return;
             }
 
-            // Token compartilhado válido, continua a requisição sem validar JWT
+            logger.debug("Token compartilhado válido para rota /internal/**");
             filterChain.doFilter(request, response);
             return;
         }
 
+        logger.debug("Validando token JWT para outras rotas");
         // Validação JWT para outros endpoints
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            logger.warn("Token JWT não encontrado ou malformado");
             filterChain.doFilter(request, response);
             return;
         }
+        logger.debug("Token JWT encontrado");
 
         final String jwt = authHeader.substring(7);
-        final String username;
 
         try {
-            username = jwtService.extractUsername(jwt);
+            String username = jwtService.extractUsername(jwt);
+
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (jwtService.isTokenValid(jwt)) {
+                    Long userId = jwtService.extractUserId(jwt);
+
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            }
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Token JWT inválido ou malformado");
             return;
         }
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtService.isTokenValid(jwt, username)) {
-                Long userId = jwtService.extractUserId(jwt);
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userId, // Principal (ID do usuário)
-                        null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                response.getWriter().write("Token JWT inválido");
-                return;
-            }
-        }
-
-        // Prosseguir com a requisição
         filterChain.doFilter(request, response);
     }
 }
