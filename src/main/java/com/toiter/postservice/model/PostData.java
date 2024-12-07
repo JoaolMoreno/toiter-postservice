@@ -45,7 +45,7 @@ public class PostData {
     public PostData() {
     }
 
-    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId, String username,
+    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId,
                     String content, String mediaUrl, Long likesCount,
                     Long repliesCount, Long repostsCount, Long viewCount,
                     LocalDateTime createdAt) {
