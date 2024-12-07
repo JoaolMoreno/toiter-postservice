@@ -22,10 +22,7 @@ public class Post {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", insertable = false, updatable = false)
-    private User user;
-
+    @Column(name = "content")
     private String content;
 
     @Column(name = "media_url")
