@@ -236,5 +236,15 @@ public class PostService {
         } catch (DataIntegrityViolationException _) {
         }
     }
+
+    public Page<PostData> getPosts(Pageable pageable) {
+        Page<Long> postIds = postRepository.fetchAllPostIds(pageable);
+        List<PostData> posts = postIds.stream()
+                .map(postId -> getPostById(postId, 0))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+        return new PageImpl<>(posts, pageable, postIds.getTotalElements());
+    }
 }
 

@@ -45,6 +45,27 @@ public class PostController {
         this.jwtService = jwtService;
     }
 
+    @Operation(summary = "Obter posts com paginação",
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Posts encontrados",
+                    content = { @Content(mediaType = "application/json") }),
+            @ApiResponse(responseCode = "403", description = "Acesso negado",
+                    content = @Content),
+            @ApiResponse(responseCode = "404", description = "Posts não encontrados",
+                    content = @Content)
+    })
+    @GetMapping
+    public Map<String, Object> getPosts(
+            @RequestParam @Parameter(description = "Número da página") int page,
+            @RequestParam @Parameter(description = "Tamanho da página") int size) {
+        logger.debug("getPosts called with page: {} and size: {}", page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostData> posts = postService.getPosts(pageable);
+        return buildResponse(posts);
+    }
+
     @Operation(summary = "Criar um novo post",
             security = {@SecurityRequirement(name = "bearerAuth")}
     )

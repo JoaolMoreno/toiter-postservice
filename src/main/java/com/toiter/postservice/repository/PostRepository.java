@@ -95,4 +95,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     """)
     Page<PostData> fetchPostsByUserId(Long userId, Pageable pageable);
 
+    @Query("SELECT p.id FROM Post p WHERE p.deleted = false and p.parentPostId is null ORDER BY p.createdAt DESC")
+    Page<Long> fetchAllPostIds(Pageable pageable);
 }
