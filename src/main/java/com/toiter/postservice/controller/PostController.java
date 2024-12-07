@@ -16,6 +16,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
@@ -35,6 +37,7 @@ public class PostController {
     private final PostService postService;
     private final LikeService likeService;
     private final JwtService jwtService;
+    private static final Logger logger = LoggerFactory.getLogger(PostController.class);
 
     public PostController(PostService postService, LikeService likeService, JwtService jwtService) {
         this.postService = postService;
@@ -58,6 +61,7 @@ public class PostController {
     public ResponseEntity<Post> createPost(
             @Valid @RequestBody PostRequest post,
             Authentication authentication) {
+        logger.debug("createPost called with post: {}", post);
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
@@ -77,6 +81,7 @@ public class PostController {
     })
     @GetMapping("/{id}")
     public ResponseEntity<PostData> getPostById(@PathVariable Long id) {
+        logger.debug("getPostById called with id: {}", id);
         PostData post = postService.getPostById(id,0)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
         return ResponseEntity.ok(post);
@@ -96,6 +101,7 @@ public class PostController {
             @PathVariable Long parentPostId,
             @RequestParam @Parameter(description = "Número da página") int page,
             @RequestParam @Parameter(description = "Tamanho da página") int size) {
+        logger.debug("getPostsByParentPostId called with parentPostId: {}, page: {} and size: {}", parentPostId, page, size);
         Pageable pageable = PageRequest.of(page, size);
         Page<PostData> posts = postService.getPostsByParentPostId(parentPostId, pageable);
         return buildResponse(posts);
@@ -115,6 +121,7 @@ public class PostController {
             @PathVariable Long parentPostId,
             @RequestParam @NotNull @Parameter(description = "Número da página") int page,
             @RequestParam @NotNull @Parameter(description = "Tamanho da página") int size) {
+        logger.debug("getThreadByParentPostId called with parentPostId: {}, page: {} and size: {}", parentPostId, page, size);
         Pageable pageable = PageRequest.of(page, size);
         return postService.getPostThread(parentPostId, pageable);
     }
@@ -133,6 +140,7 @@ public class PostController {
             @PathVariable String username,
             @RequestParam @Parameter(description = "Número da página") int page,
             @RequestParam @Parameter(description = "Tamanho da página") int size) {
+        logger.debug("getPostsByUser called with username: {}, page: {} and size: {}", username, page, size);
         Pageable pageable = PageRequest.of(page, size);
         Page<PostData> posts = postService.getPostsByUser(username, pageable);
         return buildResponse(posts);
@@ -153,6 +161,7 @@ public class PostController {
     public ResponseEntity<Void> deletePost(
             @PathVariable Long id,
             Authentication authentication) {
+        logger.debug("deletePost called with id: {}", id);
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
@@ -194,6 +203,7 @@ public class PostController {
     public ResponseEntity<Void> likePost(
             @PathVariable @NotNull(message = "Post ID cant be NULL") Long id,
             Authentication authentication) {
+        logger.debug("likePost called with id: {}", id);
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
@@ -218,6 +228,7 @@ public class PostController {
     public ResponseEntity<Void> unlikePost(
             @PathVariable @NotNull(message = "Post ID cant be NULL") Long id,
             Authentication authentication) {
+        logger.debug("unlikePost called with id: {}", id);
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
         likeService.unlikePost(id, userId);
@@ -241,6 +252,7 @@ public class PostController {
     public ResponseEntity<Void> viewPost(
             @PathVariable @NotNull(message = "Post ID cant be NULL") Long id,
             Authentication authentication) {
+        logger.debug("viewPost called with id: {}", id);
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
         postService.viewPost(id, userId);
