@@ -39,6 +39,7 @@ public class UserClientService {
     }
 
     public Long getUserIdByUsername(String username) {
+        logger.debug("Fetching user ID for username: {}", username);
         String userIdKey = USERNAME_TO_ID_KEY_PREFIX + username;
         ValueOperations<String, Long> valueOpsForLong = redisTemplateForLong.opsForValue();
         Number rawValue = valueOpsForLong.get(userIdKey);
@@ -69,6 +70,7 @@ public class UserClientService {
     }
 
     public String getUsernameById(Long userId) {
+        logger.debug("Fetching username for user ID: {}", userId);
         String usernameKey = USERNAME_TO_ID_KEY_PREFIX + "id:" + userId;
         ValueOperations<String, String> valueOpsForString = redisTemplateForString.opsForValue();
         String username = valueOpsForString.get(usernameKey);
