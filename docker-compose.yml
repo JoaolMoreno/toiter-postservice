@@ -162,12 +162,16 @@ services:
     cpus: "0.5"
 
   nginx:
-    image: nginx:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-nginx
     container_name: nginx-proxy-p
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./cert:/etc/nginx/ssl:ro
     depends_on:
       toiter-user-service:
         condition: service_started

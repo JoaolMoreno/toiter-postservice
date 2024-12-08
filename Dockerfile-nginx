@@ -1,0 +1,16 @@
+# Use a imagem base do Nginx
+FROM nginx:latest
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Copia os arquivos de configuração e certificados para o contêiner
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY cert/certificado.txt /etc/nginx/ssl/certificado.txt
+COPY cert/chave_priv.txt /etc/nginx/ssl/chave_priv.txt
+
+# Expõe as portas 80 e 443
+EXPOSE 80 443
+
+# Inicia o Nginx
+CMD ["nginx", "-g", "daemon off;"]
