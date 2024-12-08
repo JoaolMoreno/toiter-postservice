@@ -46,6 +46,7 @@ public class PostService {
 
     @Transactional
     public Post createPost(PostRequest post, Long userId) {
+        logger.debug("Creating post for user ID: {}", userId);
         if(post.content() == null || post.content().isEmpty()){
             if(post.repostParentId() == null){
                 throw new IllegalArgumentException("Content can only be empty for reposts");
@@ -111,15 +112,17 @@ public class PostService {
     }
 
     public Page<PostData> getPostsByUser(String username, Pageable pageable) {
+        logger.debug("Fetching posts by username: {}", username);
         Long userId = userClientService.getUserIdByUsername(username);
         Page<PostData> posts = postRepository.fetchPostsByUserId(userId, pageable);
-        posts.stream().forEach(post -> {
-            post.setUsername(username);
-        });
+        if (!posts.isEmpty()) {
+            posts.stream().forEach(post -> post.setUsername(username));
+        }
         return posts;
     }
 
     public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable) {
+        logger.debug("Fetching posts by parent post ID: {}", parentPostId);
         String postParentDataKey = POST_PARENTID_DATA_KEY_PREFIX + parentPostId;
         long start = pageable.getOffset();
         long end = start + pageable.getPageSize() - 1;
@@ -130,6 +133,9 @@ public class PostService {
         // Se a quantidade de posts no Redis for insuficiente, buscar no banco
         if (cachedPosts == null || cachedPosts.size() < pageable.getPageSize()) {
             Page<PostData> posts = postRepository.fetchChildPostsData(parentPostId, pageable);
+            if(posts.isEmpty()){
+                return posts;
+            }
             posts.stream().forEach(post -> {
                 String username = userClientService.getUsernameById(post.getUserId());
                 post.setUsername(username);
@@ -151,6 +157,7 @@ public class PostService {
     }
 
     public void deletePost(Long id) {
+        logger.debug("Deleting post with ID: {}", id);
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post not found"));
         post.setContent(null);
         post.setUserId(null);
@@ -171,6 +178,7 @@ public class PostService {
     }
 
     public PostThread getPostThread(Long parentPostId, Pageable pageable) {
+        logger.debug("Fetching post thread for parent post ID: {}", parentPostId);
         PostData parentPost = getPostById(parentPostId, 0)
                 .orElseThrow(() -> new ResourceNotFoundException("Parent post not found"));
 
@@ -198,6 +206,7 @@ public class PostService {
 
 
     private List<Long> getChildPostIds(Long parentPostId) {
+        logger.debug("Fetching child post IDs for parent post ID: {}", parentPostId);
         String childIdsKey = "post:childids:" + parentPostId;
 
         List<PostData> cachedChildPosts = redisTemplateForPostData.opsForList().range(childIdsKey, 0, -1);
@@ -216,6 +225,7 @@ public class PostService {
 
     @Transactional
     public void viewPost(@NotNull(message = "Post ID cant be NULL") Long postId, Long userId) {
+        logger.debug("Viewing post with ID: {} by user ID: {}", postId, userId);
         String redisKey = POST_ID_DATA_KEY_PREFIX + postId;
 
         PostData postData = redisTemplateForPostData.opsForValue().get(redisKey);
@@ -238,6 +248,7 @@ public class PostService {
     }
 
     public Page<PostData> getPosts(Pageable pageable) {
+        logger.debug("Fetching all posts");
         Page<Long> postIds = postRepository.fetchAllPostIds(pageable);
         List<PostData> posts = postIds.stream()
                 .map(postId -> getPostById(postId, 0))
