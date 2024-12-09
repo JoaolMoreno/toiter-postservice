@@ -1,6 +1,7 @@
 package com.toiter.postservice.consumer;
 
 import com.toiter.postservice.model.*;
+import com.toiter.postservice.service.LikeService;
 import com.toiter.postservice.service.PostService;
 import com.toiter.postservice.service.UserClientService;
 import jakarta.validation.constraints.Max;
@@ -17,14 +18,16 @@ import java.util.Optional;
 public class KafkaConsumer {
     private final Logger logger = LoggerFactory.getLogger(KafkaConsumer.class);
     private final PostService postService;
+    private final LikeService likeService;
     private final UserClientService userClientService;
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final String POST_ID_DATA_KEY_PREFIX = "post:id:";
     private final String POST_PARENTID_DATA_KEY_PREFIX = "post:parentid:";
     private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
 
-    public KafkaConsumer(PostService postService, UserClientService userClientService, RedisTemplate<String, PostData> redisTemplateForPostData) {
+    public KafkaConsumer(PostService postService, LikeService likeService, UserClientService userClientService, RedisTemplate<String, PostData> redisTemplateForPostData) {
         this.postService = postService;
+        this.likeService = likeService;
         this.userClientService = userClientService;
         this.redisTemplateForPostData = redisTemplateForPostData;
     }
@@ -59,7 +62,7 @@ public class KafkaConsumer {
             redisTemplateForPostData.expire(postRepostDataKey, Duration.ofHours(1));
 
             // Save reposted post data
-            Optional<PostData> repostedPostData = postService.getPostById(postData.getRepostParentId(),0);
+            Optional<PostData> repostedPostData = postService.getPostById(postData.getRepostParentId(),0, null);
             repostedPostData.ifPresent(postData::setRepostPostData);
         }
         redisTemplateForPostData.opsForValue().set(postPublicDataKey, postData, Duration.ofHours(1));
@@ -104,6 +107,12 @@ public class KafkaConsumer {
         if (postData != null) {
             postData.setLikesCount(postData.getLikesCount() + increment);
             redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
+            logger.debug("Like count incremented for post: {}, likes: {}", event.getPostId(), postData.getLikesCount());
+        }
+        if(increment == 1) {
+            likeService.registerLikeInRedis(event.getUserId(), event.getPostId());
+        } else {
+            likeService.removeLikeFromRedis(event.getUserId(), event.getPostId());
         }
     }
 

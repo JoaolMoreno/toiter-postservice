@@ -35,13 +35,15 @@ public class PostService {
     private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final ViewRepository viewRepository;
+    private final LikeService likeService;
 
-    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, RedisTemplate<String, PostData> redisTemplateForPostData, ViewRepository viewRepository) {
+    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, RedisTemplate<String, PostData> redisTemplateForPostData, ViewRepository viewRepository, LikeService likeService) {
         this.userClientService = userClientService;
         this.postRepository = postRepository;
         this.kafkaProducer = kafkaProducer;
         this.redisTemplateForPostData = redisTemplateForPostData;
         this.viewRepository = viewRepository;
+        this.likeService = likeService;
     }
 
     @Transactional
@@ -79,13 +81,19 @@ public class PostService {
         }
     }
 
-    public Optional<PostData> getPostById(Long id, int depth) {
+    public Optional<PostData> getPostById(Long id, int depth, Long userId) {
         logger.debug("Fetching post data for ID: {}, depth: {}", id, depth);
         PostData postData;
         postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + id);
         if (postData != null) {
             logger.debug("Post data found in cache for ID: {}", id);
             redisTemplateForPostData.expire(POST_ID_DATA_KEY_PREFIX + id, Duration.ofHours(1));
+            if(postData.isDeleted()){
+                return Optional.empty();
+            }
+            if(userId != null){
+                postData.setIsLiked(likeService.userLikedPost(userId, id));
+            }
             return Optional.of(postData);
         }
         logger.debug("Post data not found in cache for ID: {}", id);
@@ -99,12 +107,15 @@ public class PostService {
             post.get().setUsername(username);
 
             if(post.get().getRepostParentId() != null && depth == 0){
-                Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1);
+                Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1, userId);
                 repostedPostData.ifPresent(post.get()::setRepostPostData);
             }
 
             logger.debug("Post data found in database for ID: {}", id);
             redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + id, post.get(), Duration.ofHours(1));
+            post.get().setIsLiked(
+                    likeService.userLikedPost(userId, id)
+            );
             return post;
         }
         logger.debug("Post data not found in database for ID: {}", id);
@@ -116,12 +127,15 @@ public class PostService {
         Long userId = userClientService.getUserIdByUsername(username);
         Page<PostData> posts = postRepository.fetchPostsByUserId(userId, pageable);
         if (!posts.isEmpty()) {
-            posts.stream().forEach(post -> post.setUsername(username));
+            posts.stream().forEach(post -> {
+                post.setUsername(username);
+                post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
+            });
         }
         return posts;
     }
 
-    public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable) {
+    public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable, Long userId) {
         logger.debug("Fetching posts by parent post ID: {}", parentPostId);
         String postParentDataKey = POST_PARENTID_DATA_KEY_PREFIX + parentPostId;
         long start = pageable.getOffset();
@@ -139,6 +153,7 @@ public class PostService {
             posts.stream().forEach(post -> {
                 String username = userClientService.getUsernameById(post.getUserId());
                 post.setUsername(username);
+                post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
             });
 
             // Adicionar os posts ao cache
@@ -150,6 +165,9 @@ public class PostService {
         }
 
         // Retornar os dados do Redis como um Page
+        cachedPosts.forEach(post -> {
+            post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
+        });
         Long totalElements = redisTemplateForPostData.opsForList().size(postParentDataKey);
         totalElements = (totalElements != null) ? totalElements : 0;
 
@@ -177,12 +195,12 @@ public class PostService {
         }
     }
 
-    public PostThread getPostThread(Long parentPostId, Pageable pageable) {
+    public PostThread getPostThread(Long parentPostId, Pageable pageable, Long userId) {
         logger.debug("Fetching post thread for parent post ID: {}", parentPostId);
-        PostData parentPost = getPostById(parentPostId, 0)
+        PostData parentPost = getPostById(parentPostId, 0, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Parent post not found"));
 
-        Page<PostData> childPostsPage = getPostsByParentPostId(parentPostId, pageable);
+        Page<PostData> childPostsPage = getPostsByParentPostId(parentPostId, pageable, userId);
 
         if(childPostsPage.isEmpty()){
             return new PostThread(parentPost, List.of(), false, 0, 0, 0, 0);
@@ -247,11 +265,11 @@ public class PostService {
         }
     }
 
-    public Page<PostData> getPosts(Pageable pageable) {
+    public Page<PostData> getPosts(Pageable pageable, Long userId) {
         logger.debug("Fetching all posts");
         Page<Long> postIds = postRepository.fetchAllPostIds(pageable);
         List<PostData> posts = postIds.stream()
-                .map(postId -> getPostById(postId, 0))
+                .map(postId -> getPostById(postId, 0, userId))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .toList();

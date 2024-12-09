@@ -37,6 +37,8 @@ public class PostData {
 
     private PostData repostPostData;
 
+    private Boolean isLiked;
+
     @JsonIgnore
     private boolean deleted;
 
@@ -201,5 +203,13 @@ public class PostData {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public Boolean getIsLiked() {
+        return isLiked;
+    }
+
+    public void setIsLiked(Boolean isLiked) {
+        this.isLiked = isLiked;
     }
 }

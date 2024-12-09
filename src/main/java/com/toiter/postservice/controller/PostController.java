@@ -59,10 +59,13 @@ public class PostController {
     @GetMapping
     public Map<String, Object> getPosts(
             @RequestParam @Parameter(description = "Número da página") int page,
-            @RequestParam @Parameter(description = "Tamanho da página") int size) {
+            @RequestParam @Parameter(description = "Tamanho da página") int size,
+            Authentication authentication) {
         logger.debug("getPosts called with page: {} and size: {}", page, size);
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
         Pageable pageable = PageRequest.of(page, size);
-        Page<PostData> posts = postService.getPosts(pageable);
+        Page<PostData> posts = postService.getPosts(pageable, userId);
         return buildResponse(posts);
     }
 
@@ -101,9 +104,12 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping("/{id}")
-    public ResponseEntity<PostData> getPostById(@PathVariable Long id) {
+    public ResponseEntity<PostData> getPostById(@PathVariable Long id,
+                                                Authentication authentication) {
         logger.debug("getPostById called with id: {}", id);
-        PostData post = postService.getPostById(id,0)
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
+        PostData post = postService.getPostById(id,0, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
         return ResponseEntity.ok(post);
     }
@@ -121,10 +127,13 @@ public class PostController {
     public Map<String, Object> getPostsByParentPostId(
             @PathVariable Long parentPostId,
             @RequestParam @Parameter(description = "Número da página") int page,
-            @RequestParam @Parameter(description = "Tamanho da página") int size) {
+            @RequestParam @Parameter(description = "Tamanho da página") int size,
+            Authentication authentication) {
         logger.debug("getPostsByParentPostId called with parentPostId: {}, page: {} and size: {}", parentPostId, page, size);
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
         Pageable pageable = PageRequest.of(page, size);
-        Page<PostData> posts = postService.getPostsByParentPostId(parentPostId, pageable);
+        Page<PostData> posts = postService.getPostsByParentPostId(parentPostId, pageable, userId);
         return buildResponse(posts);
     }
 
@@ -141,10 +150,13 @@ public class PostController {
     public PostThread getThreadByParentPostId(
             @PathVariable Long parentPostId,
             @RequestParam @NotNull @Parameter(description = "Número da página") int page,
-            @RequestParam @NotNull @Parameter(description = "Tamanho da página") int size) {
+            @RequestParam @NotNull @Parameter(description = "Tamanho da página") int size,
+            Authentication authentication) {
         logger.debug("getThreadByParentPostId called with parentPostId: {}, page: {} and size: {}", parentPostId, page, size);
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
         Pageable pageable = PageRequest.of(page, size);
-        return postService.getPostThread(parentPostId, pageable);
+        return postService.getPostThread(parentPostId, pageable, userId);
     }
 
     @Operation(summary = "Obter posts pelo ID do usuário com paginação",
@@ -186,7 +198,7 @@ public class PostController {
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
-        PostData existingPost = postService.getPostById(id,0)
+        PostData existingPost = postService.getPostById(id,0, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
 
         if (!existingPost.getUserId().equals(userId)) {
