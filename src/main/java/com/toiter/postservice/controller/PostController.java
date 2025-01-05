@@ -172,10 +172,12 @@ public class PostController {
     public Map<String, Object> getPostsByUser(
             @PathVariable String username,
             @RequestParam @Parameter(description = "Número da página") int page,
-            @RequestParam @Parameter(description = "Tamanho da página") int size) {
+            @RequestParam @Parameter(description = "Tamanho da página") int size,
+            Authentication authentication) {
         logger.debug("getPostsByUser called with username: {}, page: {} and size: {}", username, page, size);
         Pageable pageable = PageRequest.of(page, size);
-        Page<PostData> posts = postService.getPostsByUser(username, pageable);
+        Long authenticatedUserId = jwtService.getUserIdFromAuthentication(authentication);
+        Page<PostData> posts = postService.getPostsByUser(username, authenticatedUserId, pageable);
         return buildResponse(posts);
     }
 

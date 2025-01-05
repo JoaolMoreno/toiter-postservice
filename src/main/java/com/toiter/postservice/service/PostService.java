@@ -122,14 +122,14 @@ public class PostService {
         return Optional.empty();
     }
 
-    public Page<PostData> getPostsByUser(String username, Pageable pageable) {
+    public Page<PostData> getPostsByUser(String username, Long authenticatedUserId, Pageable pageable) {
         logger.debug("Fetching posts by username: {}", username);
         Long userId = userClientService.getUserIdByUsername(username);
         Page<PostData> posts = postRepository.fetchPostsByUserId(userId, pageable);
         if (!posts.isEmpty()) {
             posts.stream().forEach(post -> {
                 post.setUsername(username);
-                post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
+                post.setIsLiked(likeService.userLikedPost(authenticatedUserId, post.getId()));
             });
         }
         return posts;
