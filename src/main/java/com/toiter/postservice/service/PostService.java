@@ -275,5 +275,10 @@ public class PostService {
                 .toList();
         return new PageImpl<>(posts, pageable, postIds.getTotalElements());
     }
+
+    public Integer getPostsCount(Long userId) {
+        logger.debug("Fetching posts count for user ID: {}", userId);
+        return postRepository.countByUserId(userId);
+    }
 }
 
