@@ -112,6 +112,10 @@ public class PostService {
             }
 
             logger.debug("Post data found in database for ID: {}", id);
+
+            String userProfilePicture = userClientService.getUserProfilePicture(username);
+            post.get().setProfilePicture(userProfilePicture);
+
             redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + id, post.get(), Duration.ofHours(1));
             post.get().setIsLiked(
                     likeService.userLikedPost(userId, id)

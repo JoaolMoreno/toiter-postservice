@@ -23,6 +23,8 @@ public class PostData {
 
     private String username;
 
+    private String profilePicture;
+
     private String content;
 
     private String mediaUrl;
@@ -75,6 +77,22 @@ public class PostData {
         this.mediaUrl = post.getMediaUrl();
         this.createdAt = post.getCreatedAt();
         this.deleted = post.isDeleted();
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
+    }
+
+    public Boolean getLiked() {
+        return isLiked;
+    }
+
+    public void setLiked(Boolean liked) {
+        isLiked = liked;
     }
 
     public Long getId() {

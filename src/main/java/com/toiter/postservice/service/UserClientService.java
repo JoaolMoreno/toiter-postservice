@@ -97,4 +97,15 @@ public class UserClientService {
 
         return username;
     }
+
+    public String getUserProfilePicture(String username) {
+        logger.debug("Fetching user profile picture for username: {}", username);
+        String url = userServiceUrl + "/users/" + username + "/profile-picture";
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + sharedKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+        return response.getBody();
+    }
 }
