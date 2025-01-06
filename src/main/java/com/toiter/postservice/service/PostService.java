@@ -134,6 +134,7 @@ public class PostService {
             posts.stream().forEach(post -> {
                 post.setUsername(username);
                 post.setIsLiked(likeService.userLikedPost(authenticatedUserId, post.getId()));
+                post.setProfilePicture(userClientService.getUserProfilePicture(username));
             });
         }
         return posts;
@@ -158,6 +159,7 @@ public class PostService {
                 String username = userClientService.getUsernameById(post.getUserId());
                 post.setUsername(username);
                 post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
+                post.setProfilePicture(userClientService.getUserProfilePicture(username));
             });
 
             // Adicionar os posts ao cache
