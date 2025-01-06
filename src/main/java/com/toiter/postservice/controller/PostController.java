@@ -153,7 +153,7 @@ public class PostController {
             @RequestParam @NotNull @Parameter(description = "Tamanho da página") int size,
             Authentication authentication) {
         logger.debug("getThreadByParentPostId called with parentPostId: {}, page: {} and size: {}", parentPostId, page, size);
-        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+        Long userId = (authentication != null) ? jwtService.getUserIdFromAuthentication(authentication) : null;
 
         Pageable pageable = PageRequest.of(page, size);
         return postService.getPostThread(parentPostId, pageable, userId);
