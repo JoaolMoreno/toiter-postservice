@@ -47,6 +47,7 @@ public class KafkaConsumer {
 
         String username = userClientService.getUsernameById(postData.getUserId());
         postData.setUsername(username);
+        postData.setProfilePicture(userClientService.getUserProfilePicture(username));
 
         // Save by Parent ID
         if (postData.getParentPostId() != null) {
