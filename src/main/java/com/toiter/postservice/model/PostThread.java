@@ -82,14 +82,14 @@ public class PostThread {
 
     public static class ChildPost {
         private PostData post;
-        private List<Long> childPostIds;
+        private List<PostData> childPosts;
 
         public ChildPost() {
         }
 
-        public ChildPost(PostData post, List<Long> childPostIds) {
+        public ChildPost(PostData post, List<PostData> childPosts) {
             this.post = post;
-            this.childPostIds = childPostIds;
+            this.childPosts = childPosts;
         }
 
         public PostData getPost() {
@@ -100,15 +100,13 @@ public class PostThread {
             this.post = post;
         }
 
-        public List<Long> getChildPostIds() {
-            return childPostIds;
+        public List<PostData> getChildPosts() {
+            return childPosts;
         }
 
-        public void setChildPostIds(List<Long> childPostIds) {
-            this.childPostIds = childPostIds;
+        public void setChildPosts(List<PostData> childPosts) {
+            this.childPosts = childPosts;
         }
-
     }
-
 }
 
