@@ -19,8 +19,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.id = :postId and p.deleted = false")
     Page<Post> findByParentPostId(Long parentPostId, Pageable pageable);
 
-    @Query("SELECT p.id FROM Post p WHERE p.parentPostId = :parentPostId ORDER BY p.createdAt DESC limit 3")
-    List<Long> findChildIdsByParentPostId(Long parentPostId, Pageable pageable);
+    @Query("SELECT p.id FROM Post p WHERE p.parentPostId = :parentPostId ORDER BY p.createdAt DESC")
+    Page<Long> findChildIdsByParentPostId(Long parentPostId, Pageable pageable);
 
     @Query("""
         SELECT new com.toiter.postservice.model.PostData(
@@ -45,30 +45,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         GROUP BY p.id
     """)
     Optional<PostData> fetchPostData(Long postId);
-
-    @Query("""
-        SELECT new com.toiter.postservice.model.PostData(
-            p.id,
-            p.parentPostId,
-            p.repostParentId,
-            p.userId,
-            p.content,
-            p.mediaUrl,
-            COUNT(DISTINCT l.id) as likesCount,
-            COUNT(DISTINCT r.id) as repliesCount,
-            COUNT(DISTINCT rp.id) as repostsCount,
-            COUNT(DISTINCT v.id) as viewCount,
-            p.createdAt
-        )
-        FROM Post p
-        LEFT JOIN Like l ON l.post.id = p.id
-        LEFT JOIN Post r ON r.parentPostId = p.id
-        LEFT JOIN Post rp ON rp.repostParentId = p.id
-        LEFT JOIN View v ON v.post.id = p.id
-        WHERE p.parentPostId = :parentPostId
-        GROUP BY p.id
-    """)
-    Page<PostData> fetchChildPostsData(Long parentPostId, Pageable pageable);
 
     @Query("""
         SELECT new com.toiter.postservice.model.PostData(
