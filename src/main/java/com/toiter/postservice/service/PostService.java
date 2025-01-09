@@ -14,11 +14,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -30,20 +28,17 @@ public class PostService {
     private final PostRepository postRepository;
     private final KafkaProducer kafkaProducer;
     private final Logger logger = LoggerFactory.getLogger(PostService.class);
-    private final String POST_ID_DATA_KEY_PREFIX = "post:id:";
-    private final String POST_PARENTID_DATA_KEY_PREFIX = "post:parentid:";
-    private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
-    private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final ViewRepository viewRepository;
     private final LikeService likeService;
+    private final CacheService cacheService;
 
-    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, RedisTemplate<String, PostData> redisTemplateForPostData, ViewRepository viewRepository, LikeService likeService) {
+    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, ViewRepository viewRepository, LikeService likeService, CacheService cacheService) {
         this.userClientService = userClientService;
         this.postRepository = postRepository;
         this.kafkaProducer = kafkaProducer;
-        this.redisTemplateForPostData = redisTemplateForPostData;
         this.viewRepository = viewRepository;
         this.likeService = likeService;
+        this.cacheService = cacheService;
     }
 
     @Transactional
@@ -84,10 +79,9 @@ public class PostService {
     public Optional<PostData> getPostById(Long id, int depth, Long userId) {
         logger.debug("Fetching post data for ID: {}, depth: {}", id, depth);
         PostData postData;
-        postData = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + id);
+        postData = cacheService.getCachedPostById(id);
         if (postData != null) {
             logger.debug("Post data found in cache for ID: {}", id);
-            redisTemplateForPostData.expire(POST_ID_DATA_KEY_PREFIX + id, Duration.ofHours(1));
             if(postData.isDeleted()){
                 return Optional.empty();
             }
@@ -116,7 +110,7 @@ public class PostService {
             String userProfilePicture = userClientService.getUserProfilePicture(username);
             post.get().setProfilePicture(userProfilePicture);
 
-            redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + id, post.get(), Duration.ofHours(1));
+            cacheService.cachePostData(post.get());
             post.get().setIsLiked(
                     likeService.userLikedPost(userId, id)
             );
@@ -142,42 +136,13 @@ public class PostService {
 
     public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable, Long userId) {
         logger.debug("Fetching posts by parent post ID: {}", parentPostId);
-        String postParentDataKey = POST_PARENTID_DATA_KEY_PREFIX + parentPostId;
-        long start = pageable.getOffset();
-        long end = start + pageable.getPageSize() - 1;
-
-        // Buscar os posts filhos do Redis
-        List<PostData> cachedPosts = redisTemplateForPostData.opsForList().range(postParentDataKey, start, end);
-
-        // Se a quantidade de posts no Redis for insuficiente, buscar no banco
-        if (cachedPosts == null || cachedPosts.size() < pageable.getPageSize()) {
-            Page<PostData> posts = postRepository.fetchChildPostsData(parentPostId, pageable);
-            if(posts.isEmpty()){
-                return posts;
-            }
-            posts.stream().forEach(post -> {
-                String username = userClientService.getUsernameById(post.getUserId());
-                post.setUsername(username);
-                post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
-                post.setProfilePicture(userClientService.getUserProfilePicture(username));
-            });
-
-            // Adicionar os posts ao cache
-            redisTemplateForPostData.delete(postParentDataKey);
-            redisTemplateForPostData.opsForList().rightPushAll(postParentDataKey, posts.getContent());
-            redisTemplateForPostData.expire(postParentDataKey, Duration.ofHours(1));
-
-            return posts;
-        }
-
-        // Retornar os dados do Redis como um Page
-        cachedPosts.forEach(post -> {
-            post.setIsLiked(likeService.userLikedPost(userId, post.getId()));
-        });
-        Long totalElements = redisTemplateForPostData.opsForList().size(postParentDataKey);
-        totalElements = (totalElements != null) ? totalElements : 0;
-
-        return new PageImpl<>(cachedPosts, pageable, totalElements);
+        Page<Long> postIds = postRepository.findChildIdsByParentPostId(parentPostId, pageable);
+        List<PostData> posts = postIds.stream()
+                .map(postId -> getPostById(postId, 0, userId))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+        return new PageImpl<>(posts, pageable, postIds.getTotalElements());
     }
 
     public void deletePost(Long id) {
@@ -208,14 +173,14 @@ public class PostService {
 
         Page<PostData> childPostsPage = getPostsByParentPostId(parentPostId, pageable, userId);
 
-        if(childPostsPage.isEmpty()){
+        if (childPostsPage.isEmpty()) {
             return new PostThread(parentPost, List.of(), false, 0, 0, 0, 0);
         }
 
         List<PostThread.ChildPost> childPostsWithIds = childPostsPage.getContent().stream()
                 .map(childPost -> {
-                    List<Long> childIds = getChildPostIds(childPost.getId());
-                    return new PostThread.ChildPost(childPost, childIds);
+                    List<PostData> childPosts = getPostsByParentPostId(childPost.getId(), Pageable.unpaged(), userId).getContent();
+                    return new PostThread.ChildPost(childPost, childPosts);
                 })
                 .toList();
 
@@ -228,31 +193,11 @@ public class PostService {
         return new PostThread(parentPost, childPostsWithIds, hasNext, totalElements, totalPages, pageSize, currentPage);
     }
 
-
-    private List<Long> getChildPostIds(Long parentPostId) {
-        logger.debug("Fetching child post IDs for parent post ID: {}", parentPostId);
-        String childIdsKey = "post:childids:" + parentPostId;
-
-        List<PostData> cachedChildPosts = redisTemplateForPostData.opsForList().range(childIdsKey, 0, -1);
-        List<Long> childIds;
-
-        if (cachedChildPosts != null && !cachedChildPosts.isEmpty()) {
-            redisTemplateForPostData.expire(childIdsKey, Duration.ofHours(1));
-            return cachedChildPosts.stream().map(PostData::getId).toList();
-        }
-
-        childIds = postRepository.findChildIdsByParentPostId(parentPostId,Pageable.ofSize(3));
-
-        // TODO: enviar um evento para popular o cache em segundo plano passando childIds
-        return childIds;
-    }
-
     @Transactional
     public void viewPost(@NotNull(message = "Post ID cant be NULL") Long postId, Long userId) {
         logger.debug("Viewing post with ID: {} by user ID: {}", postId, userId);
-        String redisKey = POST_ID_DATA_KEY_PREFIX + postId;
 
-        PostData postData = redisTemplateForPostData.opsForValue().get(redisKey);
+        PostData postData = cacheService.getCachedPostById(postId);
 
         if (postData != null && postData.isDeleted()) {
             return;
@@ -287,4 +232,3 @@ public class PostService {
         return postRepository.countByUserId(userId);
     }
 }
-
