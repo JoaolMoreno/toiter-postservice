@@ -45,4 +45,13 @@ public class CacheService {
         }
         return null;
     }
+
+    public void deletePostData(PostData postData) {
+        Long userId = postData.getUserId();
+        logger.debug("Deleting post data for ID: {}", userId);
+        String userIndexKey = String.format("user:posts:%s", userId);
+
+        redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
+        redisTemplateForSet.opsForSet().remove(userIndexKey);
+    }
 }
