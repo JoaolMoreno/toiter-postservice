@@ -7,7 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.List;
+import java.util.Set;
 
 @Service
 public class CacheService {
@@ -53,5 +53,11 @@ public class CacheService {
 
         redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
         redisTemplateForSet.opsForSet().remove(userIndexKey);
+    }
+
+    public Set<Long> getUserPostIds(Long userId) {
+        String userIndexKey = "user:posts:" + userId;
+        logger.debug("Fetching post IDs for user ID: {}", userId);
+        return redisTemplateForSet.opsForSet().members(userIndexKey);
     }
 }
