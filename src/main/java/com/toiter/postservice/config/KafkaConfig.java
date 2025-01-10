@@ -1,7 +1,7 @@
 package com.toiter.postservice.config;
 
 import com.toiter.postservice.model.LikeEvent;
-import com.toiter.postservice.model.PostCreatedEvent;
+import com.toiter.postservice.model.PostEvent;
 import com.toiter.postservice.model.PostViewedEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -48,8 +48,8 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ProducerFactory<String, PostCreatedEvent> producerFactory() {
-        return producerFactory(PostCreatedEvent.class, "post-transaction");
+    public ProducerFactory<String, PostEvent> producerFactory() {
+        return producerFactory(PostEvent.class, "post-transaction");
     }
 
     @Bean
@@ -72,8 +72,8 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, PostCreatedEvent> consumerFactory() {
-        return consumerFactory(PostCreatedEvent.class, "post-service-group");
+    public ConsumerFactory<String, PostEvent> consumerFactory() {
+        return consumerFactory(PostEvent.class, "post-service-group");
     }
 
     @Bean
@@ -92,7 +92,7 @@ public class KafkaConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, PostCreatedEvent> kafkaTemplate(ProducerFactory<String, PostCreatedEvent> producerFactory) {
+    public KafkaTemplate<String, PostEvent> kafkaTemplate(ProducerFactory<String, PostEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
@@ -102,8 +102,8 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, PostCreatedEvent> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, PostCreatedEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, PostEvent> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, PostEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         return factory;
     }
