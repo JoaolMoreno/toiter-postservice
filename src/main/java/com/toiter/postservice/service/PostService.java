@@ -145,11 +145,15 @@ public class PostService {
         return new PageImpl<>(posts, pageable, postIds.getTotalElements());
     }
 
-    public void deletePost(Long id) {
+    public void deletePost(Long id, Long userId) {
         logger.debug("Deleting post with ID: {}", id);
         Post post = postRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Post not found"));
-        post.setContent(null);
-        post.setUserId(null);
+        Long postUserId = post.getUserId();
+
+        if (!postUserId.equals(userId)) {
+            throw new IllegalArgumentException("Usuário não tem permissão para deletar este post");
+        }
+        post.setContent("");
         post.setMediaUrl(null);
         post.setDeletedAt(LocalDateTime.now());
         post.setDeleted(true);
@@ -157,7 +161,7 @@ public class PostService {
         postRepository.save(post);
 
         try {
-            PostCreatedEvent event = new PostCreatedEvent(post);
+            PostDeletedEvent event = new PostDeletedEvent(post);
             kafkaProducer.sendPostDeletedEvent(event);
         }
         catch (Exception e) {
