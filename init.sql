@@ -43,9 +43,14 @@ ALTER TABLE pst.posts
             REFERENCES usr.users(id);
 
 -- Índices
-CREATE INDEX idx_posts_parent_post_id ON pst.posts (parent_post_id);
 CREATE INDEX idx_posts_user_id ON pst.posts (user_id);
+CREATE INDEX idx_posts_parent_post_id ON pst.posts (parent_post_id);
+CREATE INDEX idx_posts_parent_post_id ON pst.posts (parent_post_id);
 CREATE INDEX idx_posts_id ON pst.posts (id);
+CREATE INDEX idx_posts_user_id ON pst.posts (user_id);
+CREATE INDEX idx_posts_parent_post_id_created_at ON pst.posts (parent_post_id, created_at);
+CREATE INDEX idx_posts_user_id ON pst.posts (user_id);
+CREATE INDEX idx_posts_deleted ON pst.posts (deleted);
 
 -- Tabela 'like'
 CREATE TABLE pst.like (
