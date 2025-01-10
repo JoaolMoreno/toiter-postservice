@@ -203,11 +203,11 @@ public class PostController {
         PostData existingPost = postService.getPostById(id,0, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post não encontrado com o id " + id));
 
-        if (!existingPost.getUserId().equals(userId)) {
-            throw new RuntimeException("Você não tem permissão para deletar este post");
+        if(existingPost.isDeleted()) {
+            return ResponseEntity.noContent().build();
         }
 
-        postService.deletePost(id);
+        postService.deletePost(id, userId);
         return ResponseEntity.noContent().build();
     }
 
