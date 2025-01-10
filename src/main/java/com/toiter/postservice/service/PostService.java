@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class PostService {
@@ -234,5 +236,15 @@ public class PostService {
     public Integer getPostsCount(Long userId) {
         logger.debug("Fetching posts count for user ID: {}", userId);
         return postRepository.countByUserId(userId);
+    }
+
+    public void updateProfileImage(Long userId, String imageUrl) {
+        Set<Long> postIds = cacheService.getUserPostIds(userId);
+        if(postIds == null){
+            return;
+        }
+        postIds.stream().map(cacheService::getCachedPostById)
+                .filter(Objects::nonNull)
+                .forEach(postData -> postData.setProfilePicture(imageUrl));
     }
 }
