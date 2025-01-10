@@ -28,20 +28,23 @@ public class KafkaConsumer {
     private void processPostEvent(PostEvent event) {
         logger.debug("Received event: {}", event);
         PostData postData = new PostData(event.getPost());
-        if(event instanceof PostDeletedEvent) {
-            postData.setLikesCount(0);
-            postData.setRepostsCount(0);
-            postData.setViewCount(0);
-        }
 
-        String username = userClientService.getUsernameById(postData.getUserId());
-        postData.setUsername(username);
-        postData.setProfilePicture(userClientService.getUserProfilePicture(username));
-
-        cacheService.cachePostData(postData);
-
-        if(event instanceof PostCreatedEvent) {
-            incrementReplyRepostCount(event);
+        switch (event) {
+            case PostCreatedEvent postCreatedEvent -> {
+                postData.setLikesCount(0);
+                postData.setRepostsCount(0);
+                postData.setViewCount(0);
+                cacheService.cachePostData(postData);
+                incrementReplyRepostCount(postCreatedEvent);
+            }
+            case PostDeletedEvent postDeletedEvent -> {
+                String username = userClientService.getUsernameById(postData.getUserId());
+                postData.setUsername(username);
+                postData.setProfilePicture(userClientService.getUserProfilePicture(username));
+                cacheService.deletePostData(postData);
+                decrementReplyReposCount(postDeletedEvent);
+            }
+            default -> throw new IllegalStateException("Unexpected value: " + event);
         }
     }
 
@@ -59,6 +62,26 @@ public class KafkaConsumer {
             PostData repostParentData = cacheService.getCachedPostById(event.getPost().getRepostParentId());
             if (repostParentData != null) {
                 repostParentData.setRepostsCount(repostParentData.getRepostsCount() + 1);
+                cacheService.cachePostData(repostParentData);
+            }
+        }
+    }
+
+    private void decrementReplyReposCount(PostEvent event){
+        logger.debug("Decrementing reply and repost count for post: {}", event.getPost().toString());
+        if(event.getPost().getParentPostId() != null) {
+            logger.debug("Decrementing reply count for parent post: {}", event.getPost().toString());
+            PostData parentPostData = cacheService.getCachedPostById(event.getPost().getParentPostId());
+            if (parentPostData != null) {
+                parentPostData.setRepliesCount(parentPostData.getRepliesCount() - 1);
+                cacheService.cachePostData(parentPostData);
+            }
+        }
+        if(event.getPost().getRepostParentId() != null) {
+            logger.debug("Decrementing repost count for parent post: {}", event.getPost().toString());
+            PostData repostParentData = cacheService.getCachedPostById(event.getPost().getRepostParentId());
+            if (repostParentData != null) {
+                repostParentData.setRepostsCount(repostParentData.getRepostsCount() - 1);
                 cacheService.cachePostData(repostParentData);
             }
         }
