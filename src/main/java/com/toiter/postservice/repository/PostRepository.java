@@ -38,8 +38,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         )
         FROM Post p
         LEFT JOIN Like l ON l.post.id = p.id
-        LEFT JOIN Post r ON r.parentPostId = p.id
-        LEFT JOIN Post rp ON rp.repostParentId = p.id
+        LEFT JOIN Post r ON r.parentPostId = p.id and r.deleted = false
+        LEFT JOIN Post rp ON rp.repostParentId = p.id and rp.deleted = false
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.id = :postId and p.deleted = false
         GROUP BY p.id
@@ -62,8 +62,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         )
         FROM Post p
         LEFT JOIN Like l ON l.post.id = p.id
-        LEFT JOIN Post r ON r.parentPostId = p.id
-        LEFT JOIN Post rp ON rp.repostParentId = p.id
+        LEFT JOIN Post r ON r.parentPostId = p.id and r.deleted = false
+        LEFT JOIN Post rp ON rp.repostParentId = p.id and rp.deleted = false
         LEFT JOIN View v ON v.post.id = p.id
         WHERE p.userId = :userId and p.deleted = false
         GROUP BY p.id
