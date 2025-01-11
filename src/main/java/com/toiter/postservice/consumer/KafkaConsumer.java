@@ -31,6 +31,9 @@ public class KafkaConsumer {
 
         switch (event) {
             case PostCreatedEvent postCreatedEvent -> {
+                String username = userClientService.getUsernameById(postData.getUserId());
+                postData.setProfilePicture(userClientService.getUserProfilePicture(username));
+                postData.setUsername(username);
                 postData.setLikesCount(0);
                 postData.setRepostsCount(0);
                 postData.setViewCount(0);
