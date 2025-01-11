@@ -75,7 +75,8 @@ ALTER TABLE pst.like
 ALTER TABLE pst.like
     ADD CONSTRAINT fk_like_post_id
         FOREIGN KEY (post_id)
-            REFERENCES pst.posts(id);
+            REFERENCES pst.posts(id)
+                ON DELETE CASCADE;
 
 
 -- Tabela 'view'
@@ -99,7 +100,8 @@ ALTER TABLE pst.view
 ALTER TABLE pst.view
     ADD CONSTRAINT fk_view_post_id
         FOREIGN KEY (post_id)
-            REFERENCES pst.posts(id);
+            REFERENCES pst.posts(id)
+                ON DELETE CASCADE;
 
 
 -- Alterar a propriedade do schema para o usuário 'pst'
