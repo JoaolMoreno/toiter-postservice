@@ -8,13 +8,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface PostRepository extends JpaRepository<Post, Long> {
-    @Query("SELECT p FROM Post p WHERE p.userId = :userId and p.deleted = false ORDER BY p.createdAt DESC")
-    Page<Post> findByUserId(Long userId, Pageable pageable);
 
     @Query("SELECT p FROM Post p WHERE p.id = :postId and p.deleted = false")
     Page<Post> findByParentPostId(Long parentPostId, Pageable pageable);
@@ -46,30 +43,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     """)
     Optional<PostData> fetchPostData(Long postId);
 
-    @Query("""
-        SELECT new com.toiter.postservice.model.PostData(
-            p.id,
-            p.parentPostId,
-            p.repostParentId,
-            p.userId,
-            p.content,
-            p.mediaUrl,
-            COUNT(DISTINCT l.id) as likesCount,
-            COUNT(DISTINCT r.id) as repliesCount,
-            COUNT(DISTINCT rp.id) as repostsCount,
-            COUNT(DISTINCT v.id) as viewCount,
-            p.createdAt
-        )
-        FROM Post p
-        LEFT JOIN Like l ON l.post.id = p.id
-        LEFT JOIN Post r ON r.parentPostId = p.id and r.deleted = false
-        LEFT JOIN Post rp ON rp.repostParentId = p.id and rp.deleted = false
-        LEFT JOIN View v ON v.post.id = p.id
-        WHERE p.userId = :userId and p.deleted = false
-        GROUP BY p.id
-        ORDER BY p.createdAt DESC
-    """)
-    Page<PostData> fetchPostsByUserId(Long userId, Pageable pageable);
+    @Query("SELECT p.id FROM Post p WHERE p.userId = :userId and p.deleted = false and p.parentPostId is null ORDER BY p.createdAt DESC")
+    Page<Long> fetchIdsByUserId(Long userId, Pageable pageable);
 
     @Query("SELECT p.id FROM Post p WHERE p.deleted = false and p.parentPostId is null ORDER BY p.createdAt DESC")
     Page<Long> fetchAllPostIds(Pageable pageable);
