@@ -125,15 +125,13 @@ public class PostService {
     public Page<PostData> getPostsByUser(String username, Long authenticatedUserId, Pageable pageable) {
         logger.debug("Fetching posts by username: {}", username);
         Long userId = userClientService.getUserIdByUsername(username);
-        Page<PostData> posts = postRepository.fetchPostsByUserId(userId, pageable);
-        if (!posts.isEmpty()) {
-            posts.stream().forEach(post -> {
-                post.setUsername(username);
-                post.setIsLiked(likeService.userLikedPost(authenticatedUserId, post.getId()));
-                post.setProfilePicture(userClientService.getUserProfilePicture(username));
-            });
-        }
-        return posts;
+        Page<Long> postIds = postRepository.fetchIdsByUserId(userId, pageable);
+        List<PostData> posts = postIds.stream()
+                .map(postId -> getPostById(postId, 0, authenticatedUserId))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+        return new PageImpl<>(posts, pageable, postIds.getTotalElements());
     }
 
     public Page<PostData> getPostsByParentPostId(Long parentPostId, Pageable pageable, Long userId) {
