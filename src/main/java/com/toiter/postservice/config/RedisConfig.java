@@ -14,6 +14,7 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 
 @Configuration
 public class RedisConfig {
@@ -22,6 +23,9 @@ public class RedisConfig {
 
     @Value("${spring.data.redis.port}")
     private int redisPort;
+
+    @Value("${spring.data.redis.password}")
+    private String redisPassword;
 
     /**
      * Configura um RedisTemplate para armazenar valores do tipo Long.
@@ -87,6 +91,10 @@ public class RedisConfig {
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        return new LettuceConnectionFactory(redisHost, redisPort);
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+        config.setHostName(redisHost);
+        config.setPort(redisPort);
+        config.setPassword(redisPassword);
+        return new LettuceConnectionFactory(config);
     }
 }
