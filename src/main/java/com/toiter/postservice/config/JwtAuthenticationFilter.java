@@ -35,6 +35,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         final String authHeader = request.getHeader("Authorization");
 
+        logger.info("Request: " + request.getMethod() + " " + request.getRequestURI());
+
         logger.debug(String.format("Path: %s, AuthHeader: %s", path, authHeader));
 
         // Ignorar validação para rotas públicas (já configuradas no SecurityConfig)
@@ -46,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // Validação para /internal/** com token compartilhado
-        if (path.startsWith("/internal/")) {
+        if (path.startsWith("/internal/") || path.startsWith("/api/internal/")) {
             logger.debug("Validando token compartilhado para rota /internal/**");
             if (authHeader == null || !authHeader.equals("Bearer " + sharedKey)) {
                 logger.warn("Acesso não autorizado para /internal/**");
