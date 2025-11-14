@@ -31,9 +31,10 @@ public class KafkaConsumer {
 
         switch (event) {
             case PostCreatedEvent postCreatedEvent -> {
-                String username = userClientService.getUsernameById(postData.getUserId());
-                postData.setProfilePicture(userClientService.getUserProfilePicture(username));
-                postData.setUsername(username);
+                UserResponse userResponse = userClientService.getUserById(postData.getUserId());
+                postData.setUsername(userResponse.getUsername());
+                postData.setDisplayName(userResponse.getDisplayName());
+                postData.setProfilePicture(userClientService.getUserProfilePicture(userResponse.getUsername()));
                 postData.setLikesCount(0);
                 postData.setRepostsCount(0);
                 postData.setViewCount(0);
@@ -41,9 +42,10 @@ public class KafkaConsumer {
                 incrementReplyRepostCount(postCreatedEvent);
             }
             case PostDeletedEvent postDeletedEvent -> {
-                String username = userClientService.getUsernameById(postData.getUserId());
-                postData.setUsername(username);
-                postData.setProfilePicture(userClientService.getUserProfilePicture(username));
+                UserResponse userResponse = userClientService.getUserById(postData.getUserId());
+                postData.setUsername(userResponse.getUsername());
+                postData.setDisplayName(userResponse.getDisplayName());
+                postData.setProfilePicture(userClientService.getUserProfilePicture(userResponse.getUsername()));
                 cacheService.deletePostData(postData);
                 decrementReplyReposCount(postDeletedEvent);
             }

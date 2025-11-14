@@ -23,6 +23,8 @@ public class PostData {
 
     private String username;
 
+    private String displayName;
+
     private String profilePicture;
 
     private String content;
@@ -229,5 +231,13 @@ public class PostData {
 
     public void setIsLiked(Boolean isLiked) {
         this.isLiked = isLiked;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 }

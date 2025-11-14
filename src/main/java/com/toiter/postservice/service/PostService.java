@@ -99,8 +99,9 @@ public class PostService {
                 return Optional.empty();
             }
 
-            String username = userClientService.getUsernameById(post.get().getUserId());
-            post.get().setUsername(username);
+            UserResponse userResponse = userClientService.getUserById(post.get().getUserId());
+            post.get().setUsername(userResponse.getUsername());
+            post.get().setDisplayName(userResponse.getDisplayName());
 
             if(post.get().getRepostParentId() != null && depth == 0){
                 Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1, userId);
@@ -109,7 +110,7 @@ public class PostService {
 
             logger.debug("Post data found in database for ID: {}", id);
 
-            String userProfilePicture = userClientService.getUserProfilePicture(username);
+            String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
             post.get().setProfilePicture(userProfilePicture);
 
             cacheService.cachePostData(post.get());

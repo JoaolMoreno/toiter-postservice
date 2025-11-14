@@ -1,5 +1,6 @@
 package com.toiter.postservice.service;
 
+import com.toiter.postservice.model.UserResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,33 +70,43 @@ public class UserClientService {
         return userId;
     }
 
-    public String getUsernameById(Long userId) {
-        logger.debug("Fetching username for user ID: {}", userId);
+    public UserResponse getUserById(Long userId) {
+        logger.debug("Fetching user for user ID: {}", userId);
         String usernameKey = USERNAME_TO_ID_KEY_PREFIX + "id:" + userId;
+        String displayNameKey = USERNAME_TO_ID_KEY_PREFIX + "display:" + userId;
         ValueOperations<String, String> valueOpsForString = redisTemplateForString.opsForValue();
         String username = valueOpsForString.get(usernameKey);
+        String displayName = valueOpsForString.get(displayNameKey);
 
-        if (username == null) {
-            logger.debug("Username not found in cache, fetching from user service");
-            String url = userServiceUrl + "/users/" + userId + "/username";
+        if (username == null || displayName == null) {
+            logger.debug("Username or display name not found in cache, fetching from user service");
+            String url = userServiceUrl + "/users/" + userId + "/user";
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "Bearer " + sharedKey);
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            username = response.getBody();
+            ResponseEntity<UserResponse> response = restTemplate.exchange(url, HttpMethod.GET, entity, UserResponse.class);
+            UserResponse userResponse = response.getBody();
 
-            if (username == null) {
+            if (userResponse == null) {
                 throw new RuntimeException("User not found");
             }
 
+            username = userResponse.getUsername();
+            displayName = userResponse.getDisplayName();
+
             valueOpsForString.set(usernameKey, username);
+            valueOpsForString.set(displayNameKey, displayName);
         } else {
-            logger.debug("Username found in cache");
+            logger.debug("Username and display name found in cache");
         }
         valueOpsForString.getOperations().expire(usernameKey, Duration.ofHours(1));
+        valueOpsForString.getOperations().expire(displayNameKey, Duration.ofHours(1));
 
-        return username;
+        UserResponse userResponse = new UserResponse();
+        userResponse.setUsername(username);
+        userResponse.setDisplayName(displayName);
+        return userResponse;
     }
 
     public String getUserProfilePicture(String username) {
@@ -107,5 +118,11 @@ public class UserClientService {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
         return response.getBody();
+    }
+
+    public String getDisplayNameById(Long userId) {
+        logger.debug("Fetching display name for user ID: {}", userId);
+        UserResponse userResponse = getUserById(userId);
+        return userResponse.getDisplayName();
     }
 }
