@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.toiter.postservice.model.PostData;
+import com.toiter.userservice.entity.User;
+import com.toiter.userservice.model.UserPublicData;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -86,6 +88,49 @@ public class RedisConfig {
         template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(new GenericToStringSerializer<>(Long.class));
         template.afterPropertiesSet();
+        return template;
+    }
+
+    /**
+     * Configura um RedisTemplate para armazenar valores do tipo UserPublicData.
+     *
+     * @param connectionFactory a fábrica de conexões Redis
+     * @return um RedisTemplate configurado para chaves do tipo String e valores do tipo UserPublicData
+     */
+    @Bean
+    public RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, UserPublicData> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        return template;
+    }
+
+    /**
+     * Configura um RedisTemplate para armazenar valores do tipo User (entidade completa).
+     *
+     * @param connectionFactory a fábrica de conexões Redis
+     * @return um RedisTemplate configurado para chaves do tipo String e valores do tipo User
+     */
+    @Bean
+    public RedisTemplate<String, User> redisTemplateForUser(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, User> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+
+        // Configure ObjectMapper to support Java 8 date/time types and preserve type information
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        // Enable default typing to preserve class information during serialization
+        com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator ptv =
+            com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator.builder()
+                .allowIfBaseType(Object.class)
+                .build();
+        objectMapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);
+
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer(objectMapper));
         return template;
     }
 

@@ -1,9 +1,11 @@
 package com.toiter.postservice.consumer;
 
+import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.model.*;
 import com.toiter.postservice.service.CacheService;
 import com.toiter.postservice.service.LikeService;
 import com.toiter.postservice.service.UserClientService;
+import com.toiter.postservice.repository.PostRepository;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
@@ -11,17 +13,21 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class KafkaConsumer {
     private final Logger logger = LoggerFactory.getLogger(KafkaConsumer.class);
     private final LikeService likeService;
     private final UserClientService userClientService;
     private final CacheService cacheService;
+    private final PostRepository postRepository;
 
-    public KafkaConsumer(LikeService likeService, UserClientService userClientService, CacheService cacheService) {
+    public KafkaConsumer(LikeService likeService, UserClientService userClientService, CacheService cacheService, PostRepository postRepository) {
         this.likeService = likeService;
         this.userClientService = userClientService;
         this.cacheService = cacheService;
+        this.postRepository = postRepository;
     }
 
     @KafkaListener(topics = {"post-created-topic", "post-deleted-topic"}, groupId = "post-event-consumers")
@@ -48,6 +54,30 @@ public class KafkaConsumer {
                 postData.setProfilePicture(userClientService.getUserProfilePicture(userResponse.getUsername()));
                 cacheService.deletePostData(postData);
                 decrementReplyReposCount(postDeletedEvent);
+                // Lógica de tratamento dos reposts
+                List<Post> reposts = postRepository.findRepostsByRepostParentId(postDeletedEvent.getPost().getId());
+                for (Post repost : reposts) {
+                    if (repost.getContent() == null || repost.getContent().isEmpty()) {
+                        repost.setContent("");
+                        repost.setMediaUrl(null);
+                        repost.setDeletedAt(java.time.LocalDateTime.now());
+                        repost.setDeleted(true);
+                        postRepository.save(repost);
+                        PostData repostData = cacheService.getCachedPostById(repost.getId());
+                        if (repostData != null) {
+                            repostData.setContent("");
+                            repostData.setMediaUrl(null);
+                            repostData.setDeleted(true);
+                            cacheService.cachePostData(repostData);
+                        }
+                    } else {
+                        PostData repostData = cacheService.getCachedPostById(repost.getId());
+                        if (repostData != null) {
+                            repostData.setRepostPostData(null);
+                            cacheService.cachePostData(repostData);
+                        }
+                    }
+                }
             }
             default -> throw new IllegalStateException("Unexpected value: " + event);
         }

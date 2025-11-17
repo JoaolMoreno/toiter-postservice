@@ -51,4 +51,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("SELECT COUNT(p.id) FROM Post p WHERE p.userId = :userId and p.deleted = false and p.parentPostId is null and p.repostParentId is null")
     Integer countByUserId(Long userId);
+
+    @Query("SELECT p FROM Post p WHERE p.repostParentId = :repostParentId and p.deleted = false")
+    java.util.List<Post> findRepostsByRepostParentId(Long repostParentId);
 }

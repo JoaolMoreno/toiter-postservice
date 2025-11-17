@@ -1,9 +1,12 @@
 package com.toiter.postservice.service;
 
 import com.toiter.postservice.model.UserResponse;
+import com.toiter.userservice.model.UserPublicData;
+import com.toiter.userservice.entity.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -11,10 +14,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+/**
+ * Serviço cliente para o Serviço de Usuário, responsável por operações relacionadas a usuários.
+ * Todo o cache é gerenciado pelo Serviço de Usuário; este serviço apenas lê do cache.
+ */
 @Service
 public class UserClientService {
 
     private final RestTemplate restTemplate;
+    private final RedisTemplate<String, Long> redisTemplateForLong;
+    private final RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData;
+    private final RedisTemplate<String, User> redisTemplateForUser;
 
     @Value("${service.user.url}")
     private String userServiceUrl;
@@ -22,31 +32,62 @@ public class UserClientService {
     @Value("${service.shared-key}")
     private String sharedKey;
 
+    @Value("${server.url}")
+    private String serverUrl;
+
     private final Logger logger = LoggerFactory.getLogger(UserClientService.class);
 
-    public UserClientService(RestTemplate restTemplate) {
+    public UserClientService(RestTemplate restTemplate, RedisTemplate<String, Long> redisTemplateForLong, RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData, RedisTemplate<String, User> redisTemplateForUser) {
         this.restTemplate = restTemplate;
+        this.redisTemplateForLong = redisTemplateForLong;
+        this.redisTemplateForUserPublicData = redisTemplateForUserPublicData;
+        this.redisTemplateForUser = redisTemplateForUser;
     }
 
     public Long getUserIdByUsername(String username) {
         logger.debug("Fetching user ID for username: {}", username);
+
+        String cacheKey = "user:username:" + username;
+        Number rawValue = redisTemplateForLong.opsForValue().get(cacheKey);
+        Long cachedUserId = rawValue != null ? rawValue.longValue() : null;
+        if (cachedUserId != null) {
+            logger.debug("User ID found in cache for username: {}", username);
+            return cachedUserId;
+        }
+
         String url = userServiceUrl + "/users/" + username + "/id";
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + sharedKey);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<Long> response = restTemplate.exchange(url, HttpMethod.GET, entity, Long.class);
-        Long userId = response.getBody();
-
-        if(userId == null) {
+        ResponseEntity<Number> response = restTemplate.exchange(url, HttpMethod.GET, entity, Number.class);
+        Number body = response.getBody();
+        if (body == null) {
             throw new RuntimeException("User not found");
         }
 
-        return userId;
+        return body.longValue();
     }
 
     public UserResponse getUserById(Long userId) {
         logger.debug("Fetching user for user ID: {}", userId);
+
+        String cacheKey = "user:id:" + userId;
+        User cachedUser = redisTemplateForUser.opsForValue().get(cacheKey);
+        if (cachedUser != null) {
+            logger.debug("User found in cache for user ID: {}", userId);
+            UserResponse userResponse = new UserResponse();
+            userResponse.setId(cachedUser.getId());
+            userResponse.setUsername(cachedUser.getUsername());
+            userResponse.setDisplayName(cachedUser.getDisplayName());
+            userResponse.setEmail(cachedUser.getEmail());
+            userResponse.setBio(cachedUser.getBio());
+            userResponse.setProfileImageId(cachedUser.getProfileImageId());
+            userResponse.setHeaderImageId(cachedUser.getHeaderImageId());
+            userResponse.setCreationDate(cachedUser.getCreationDate());
+            return userResponse;
+        }
+
         String url = userServiceUrl + "/users/" + userId + "/user";
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + sharedKey);
@@ -64,18 +105,54 @@ public class UserClientService {
 
     public String getUserProfilePicture(String username) {
         logger.debug("Fetching user profile picture for username: {}", username);
+
+        Long userId = getUserIdByUsername(username);
+        UserPublicData data = getUserPublicData(userId);
+        if (data != null && data.getProfileImageId() != null) {
+            return getProfilePictureUrl(data.getProfileImageId());
+        }
+
         String url = userServiceUrl + "/users/" + username + "/profile-picture";
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + sharedKey);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-        return response.getBody();
+        String picture = response.getBody();
+
+        if (picture == null) {
+            throw new RuntimeException("Profile picture not found");
+        }
+
+        return picture;
     }
 
-    public String getDisplayNameById(Long userId) {
-        logger.debug("Fetching display name for user ID: {}", userId);
-        UserResponse userResponse = getUserById(userId);
-        return userResponse.getDisplayName();
+    public UserPublicData getUserPublicData(Long userId) {
+        logger.debug("Fetching public data for user ID: {}", userId);
+
+        String cacheKey = "user:public:" + userId;
+        UserPublicData cachedData = redisTemplateForUserPublicData.opsForValue().get(cacheKey);
+        if (cachedData != null) {
+            logger.debug("Public data found in cache for user ID: {}", userId);
+            return cachedData;
+        }
+
+        String url = userServiceUrl + "/users/" + userId;
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + sharedKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        ResponseEntity<UserPublicData> response = restTemplate.exchange(url, HttpMethod.GET, entity, UserPublicData.class);
+        UserPublicData userPublicData = response.getBody();
+
+        if (userPublicData == null) {
+            throw new RuntimeException("User public data not found");
+        }
+
+        return userPublicData;
+    }
+
+    public String getProfilePictureUrl(Long profileImageId) {
+        return profileImageId != null ? serverUrl + "/images/" + profileImageId : null;
     }
 }
