@@ -44,7 +44,7 @@ public class PostService {
     }
 
     @Transactional
-    public Post createPost(PostRequest post, Long userId) {
+    public PostData createPost(PostRequest post, Long userId) {
         logger.debug("Creating post for user ID: {}", userId);
         if(post.content() == null || post.content().isEmpty()){
             if(post.repostParentId() == null){
@@ -70,7 +70,24 @@ public class PostService {
         PostCreatedEvent event = new PostCreatedEvent(newPost);
         try {
             kafkaProducer.sendPostCreatedEvent(event);
-            return newPost;
+            PostData postData = new PostData(newPost);
+
+            UserResponse userResponse = userClientService.getUserById(userId);
+            postData.setUsername(userResponse.getUsername());
+            postData.setDisplayName(userResponse.getDisplayName());
+            String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
+            postData.setProfilePicture(userProfilePicture);
+
+            postData.setIsLiked(false);
+
+            if(postData.getRepostParentId() != null){
+                Optional<PostData> repostedPostData = getPostById(postData.getRepostParentId(), -1, userId);
+                repostedPostData.ifPresent(postData::setRepostPostData);
+            }
+
+            cacheService.cachePostData(postData);
+
+            return postData;
         }
         catch (Exception e) {
             logger.error("Failed to send event to Kafka", e);

@@ -82,14 +82,14 @@ public class PostController {
                     content = @Content)
     })
     @PostMapping
-    public ResponseEntity<Post> createPost(
+    public ResponseEntity<PostData> createPost(
             @Valid @RequestBody PostRequest post,
             Authentication authentication) {
         logger.debug("createPost called with post: {}", post);
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
-        Post createdPost = postService.createPost(post, userId);
+        PostData createdPost = postService.createPost(post, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdPost);
     }
 
