@@ -6,10 +6,13 @@ import com.toiter.userservice.model.UserPublicData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.integration.redis.util.RedisLockRegistry;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 
 @Service
 public class CacheService {
@@ -22,14 +25,18 @@ public class CacheService {
     private final RedisTemplate<String, Long> redisTemplateForLong;
     private final RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData;
     private final RedisTemplate<String, User> redisTemplateForUser;
+    private final RedisTemplate<String, String> redisTemplateForString;
+    private final RedisLockRegistry redisLockRegistry;
 
-    public CacheService(RedisTemplate<String, PostData> redisTemplateForPostData, RedisTemplate<String, Long> redisTemplateForSet, RedisTemplate<String, Boolean> redisTemplateForLike, RedisTemplate<String, Long> redisTemplateForLong, RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData, RedisTemplate<String, User> redisTemplateForUser) {
+    public CacheService(RedisTemplate<String, PostData> redisTemplateForPostData, RedisTemplate<String, Long> redisTemplateForSet, RedisTemplate<String, Boolean> redisTemplateForLike, RedisTemplate<String, Long> redisTemplateForLong, RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData, RedisTemplate<String, User> redisTemplateForUser, RedisTemplate<String, String> redisTemplateForString, RedisLockRegistry redisLockRegistry) {
         this.redisTemplateForPostData = redisTemplateForPostData;
         this.redisTemplateForSet = redisTemplateForSet;
         this.redisTemplateForLike = redisTemplateForLike;
         this.redisTemplateForLong = redisTemplateForLong;
         this.redisTemplateForUserPublicData = redisTemplateForUserPublicData;
         this.redisTemplateForUser = redisTemplateForUser;
+        this.redisTemplateForString = redisTemplateForString;
+        this.redisLockRegistry = redisLockRegistry;
     }
 
     private PostData sanitizeForCache(PostData source) {
@@ -98,15 +105,18 @@ public class CacheService {
     }
 
     public void deletePostData(PostData postData) {
-        Long userId = postData.getUserId();
-        logger.debug("Deleting post data for ID: {}", userId);
-        String userIndexKey = String.format("user:posts:%s", userId);
+        String lockKey = "post:" + postData.getId();
+        withLock(lockKey, () -> {
+            Long userId = postData.getUserId();
+            logger.debug("Deleting post data for ID: {}", userId);
+            String userIndexKey = String.format("user:posts:%s", userId);
 
 
-        PostData toCache = sanitizeForCache(postData);
-        redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), toCache, Duration.ofHours(1));
+            PostData toCache = sanitizeForCache(postData);
+            redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), toCache, Duration.ofHours(1));
 
-        redisTemplateForSet.opsForSet().remove(userIndexKey);
+            redisTemplateForSet.opsForSet().remove(userIndexKey);
+        });
     }
 
     public Set<Long> getUserPostIds(Long userId) {
@@ -148,5 +158,33 @@ public class CacheService {
     public UserPublicData getCachedUserPublicData(Long userId) {
         String cacheKey = "user:public:" + userId;
         return redisTemplateForUserPublicData.opsForValue().get(cacheKey);
+    }
+
+    private void withLock(String lockKey, Runnable action) {
+        Lock lock = redisLockRegistry.obtain(lockKey);
+        boolean locked = false;
+        try {
+            locked = lock.tryLock(1, TimeUnit.SECONDS);
+            if (locked) {
+                action.run();
+            } else {
+                logger.debug("Failed to acquire lock for key: {}", lockKey);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while acquiring lock for key: {}", lockKey, e);
+        } finally {
+            if (locked) {
+                lock.unlock();
+            }
+        }
+    }
+
+    public boolean trySetLock(String key, String value, long timeoutSeconds) {
+        return redisTemplateForString.opsForValue().setIfAbsent(key, value, timeoutSeconds, TimeUnit.SECONDS);
+    }
+
+    public void deleteLock(String key) {
+        redisTemplateForString.delete(key);
     }
 }

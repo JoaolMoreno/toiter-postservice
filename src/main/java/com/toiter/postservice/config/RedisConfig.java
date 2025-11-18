@@ -17,6 +17,7 @@ import org.springframework.data.redis.serializer.GenericToStringSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.integration.redis.util.RedisLockRegistry;
 
 @Configuration
 public class RedisConfig {
@@ -141,5 +142,10 @@ public class RedisConfig {
         config.setPort(redisPort);
         config.setPassword(redisPassword);
         return new LettuceConnectionFactory(config);
+    }
+
+    @Bean
+    public RedisLockRegistry redisLockRegistry(RedisConnectionFactory redisConnectionFactory) {
+        return new RedisLockRegistry(redisConnectionFactory, "lock");
     }
 }

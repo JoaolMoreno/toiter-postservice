@@ -100,57 +100,67 @@ public class PostService {
     }
 
     public Optional<PostData> getPostById(Long id, int depth, Long userId) {
-        logger.debug("Fetching post data for ID: {}, depth: {}", id, depth);
-        PostData postData;
-        postData = cacheService.getCachedPostById(id);
+        return getPostById(id, depth, userId, false);
+    }
+
+    private Optional<PostData> getPostById(Long id, int depth, Long userId, boolean isRetry) {
+        if (!isRetry) {
+            logger.debug("Fetching post data for ID: {}, depth: {}", id, depth);
+        }
+        PostData postData = cacheService.getCachedPostById(id);
         if (postData != null) {
             logger.debug("Post data found in cache for ID: {}", id);
-            if(postData.isDeleted()){
+            PostData enriched = enrichPostData(postData, userId, depth);
+            return enriched == null ? Optional.empty() : Optional.of(enriched);
+        }
+        if (!isRetry) {
+            logger.debug("Post data not found in cache for ID: {}", id);
+        }
+
+        String lockKey = "lock:post:" + id;
+        if (cacheService.trySetLock(lockKey, "1", 10)) {
+            Optional<PostData> post = postRepository.fetchPostData(id);
+            if (post.isPresent()) {
+                if (post.get().isDeleted()) {
+                    cacheService.deleteLock(lockKey);
+                    return Optional.empty();
+                }
+
+                cacheService.cachePostData(post.get());
+                cacheService.deleteLock(lockKey);
+
+                UserResponse userResponse = userClientService.getUserById(post.get().getUserId());
+                post.get().setUsername(userResponse.getUsername());
+                post.get().setDisplayName(userResponse.getDisplayName());
+
+                if (post.get().getRepostParentId() != null && depth == 0) {
+                    Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1, userId, false);
+                    repostedPostData.ifPresent(post.get()::setRepostPostData);
+                }
+
+                logger.debug("Post data found in database for ID: {}", id);
+
+                String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
+                post.get().setProfilePicture(userProfilePicture);
+
+                post.get().setIsLiked(
+                        likeService.userLikedPost(userId, id)
+                );
+                return post;
+            }
+            cacheService.deleteLock(lockKey);
+            logger.debug("Post data not found in database for ID: {}", id);
+            return Optional.empty();
+        } else {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.error("Interrupted while waiting for lock on post ID: {}", id, e);
                 return Optional.empty();
             }
-            UserResponse userResponse = userClientService.getUserById(postData.getUserId());
-            postData.setUsername(userResponse.getUsername());
-            postData.setDisplayName(userResponse.getDisplayName());
-            String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
-            postData.setProfilePicture(userProfilePicture);
-            if(userId != null){
-                postData.setIsLiked(likeService.userLikedPost(userId, id));
-            }
-            if(postData.getRepostParentId() != null && depth == 0){
-                Optional<PostData> repostedPostData = getPostById(postData.getRepostParentId(), depth - 1, userId);
-                repostedPostData.ifPresent(postData::setRepostPostData);
-            }
-            return Optional.of(postData);
+            return getPostById(id, depth, userId, true);
         }
-        logger.debug("Post data not found in cache for ID: {}", id);
-        Optional<PostData> post = postRepository.fetchPostData(id);
-        if (post.isPresent()) {
-            if(post.get().isDeleted()){
-                return Optional.empty();
-            }
-
-            UserResponse userResponse = userClientService.getUserById(post.get().getUserId());
-            post.get().setUsername(userResponse.getUsername());
-            post.get().setDisplayName(userResponse.getDisplayName());
-
-            if(post.get().getRepostParentId() != null && depth == 0){
-                Optional<PostData> repostedPostData = getPostById(post.get().getRepostParentId(), depth - 1, userId);
-                repostedPostData.ifPresent(post.get()::setRepostPostData);
-            }
-
-            logger.debug("Post data found in database for ID: {}", id);
-
-            String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
-            post.get().setProfilePicture(userProfilePicture);
-
-            cacheService.cachePostData(post.get());
-            post.get().setIsLiked(
-                    likeService.userLikedPost(userId, id)
-            );
-            return post;
-        }
-        logger.debug("Post data not found in database for ID: {}", id);
-        return Optional.empty();
     }
 
     public Page<PostData> getPostsByUser(String username, Long authenticatedUserId, Pageable pageable) {
@@ -265,5 +275,24 @@ public class PostService {
     public Integer getPostsCount(Long userId) {
         logger.debug("Fetching posts count for user ID: {}", userId);
         return postRepository.countByUserId(userId);
+    }
+
+    private PostData enrichPostData(PostData postData, Long userId, int depth) {
+        if (postData.isDeleted()) {
+            return null;
+        }
+        UserResponse userResponse = userClientService.getUserById(postData.getUserId());
+        postData.setUsername(userResponse.getUsername());
+        postData.setDisplayName(userResponse.getDisplayName());
+        String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
+        postData.setProfilePicture(userProfilePicture);
+        if (userId != null) {
+            postData.setIsLiked(likeService.userLikedPost(userId, postData.getId()));
+        }
+        if (postData.getRepostParentId() != null && depth == 0) {
+            Optional<PostData> repostedPostData = getPostById(postData.getRepostParentId(), depth - 1, userId);
+            repostedPostData.ifPresent(postData::setRepostPostData);
+        }
+        return postData;
     }
 }

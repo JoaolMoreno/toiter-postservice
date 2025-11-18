@@ -80,15 +80,41 @@ public class LikeService {
     }
 
     public boolean userLikedPost(Long userId, Long postId) {
+        return userLikedPost(userId, postId, false);
+    }
+
+    private boolean userLikedPost(Long userId, Long postId, boolean isRetry) {
+        if (!isRetry) {
+            logger.debug("Checking if user {} liked post {}", userId, postId);
+        }
         Boolean liked = cacheService.getLikeStatus(userId, postId);
         if (liked != null) {
             return liked;
         }
+        if (!isRetry) {
+            logger.debug("Like status not in cache for user {} post {}", userId, postId);
+        }
 
-        boolean existsInDb = likeRepository.existsByUserIdAndPostId(userId, postId);
-        
-        cacheService.setLikeStatus(userId, postId, existsInDb);
-
-        return existsInDb;
+        String lockKey = "lock:like:" + userId + ":" + postId;
+        if (cacheService.trySetLock(lockKey, "1", 10)) {
+            liked = cacheService.getLikeStatus(userId, postId);
+            if (liked != null) {
+                cacheService.deleteLock(lockKey);
+                return liked;
+            }
+            boolean existsInDb = likeRepository.existsByUserIdAndPostId(userId, postId);
+            cacheService.setLikeStatus(userId, postId, existsInDb);
+            cacheService.deleteLock(lockKey);
+            return existsInDb;
+        } else {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.error("Interrupted while waiting for lock on like: user {} post {}", userId, postId, e);
+                return false;
+            }
+            return userLikedPost(userId, postId, true);
+        }
     }
 }
