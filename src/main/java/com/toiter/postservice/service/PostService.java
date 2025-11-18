@@ -20,9 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 public class PostService {
@@ -73,6 +71,7 @@ public class PostService {
             kafkaProducer.sendPostCreatedEvent(event);
             PostData postData = new PostData(newPost);
 
+            // Enrich only for response (cache will store sanitized copy)
             UserResponse userResponse = userClientService.getUserById(userId);
             postData.setUsername(userResponse.getUsername());
             postData.setDisplayName(userResponse.getDisplayName());
@@ -86,7 +85,11 @@ public class PostService {
                 repostedPostData.ifPresent(postData::setRepostPostData);
             }
 
-            cacheService.cachePostData(postData);
+            try {
+                cacheService.cachePostData(postData);
+            } catch (Exception e) {
+                logger.error("Failed to cache post data for post ID: {}", newPost.getId(), e);
+            }
 
             return postData;
         }
@@ -105,8 +108,17 @@ public class PostService {
             if(postData.isDeleted()){
                 return Optional.empty();
             }
+            UserResponse userResponse = userClientService.getUserById(postData.getUserId());
+            postData.setUsername(userResponse.getUsername());
+            postData.setDisplayName(userResponse.getDisplayName());
+            String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
+            postData.setProfilePicture(userProfilePicture);
             if(userId != null){
                 postData.setIsLiked(likeService.userLikedPost(userId, id));
+            }
+            if(postData.getRepostParentId() != null && depth == 0){
+                Optional<PostData> repostedPostData = getPostById(postData.getRepostParentId(), depth - 1, userId);
+                repostedPostData.ifPresent(postData::setRepostPostData);
             }
             return Optional.of(postData);
         }
@@ -253,15 +265,5 @@ public class PostService {
     public Integer getPostsCount(Long userId) {
         logger.debug("Fetching posts count for user ID: {}", userId);
         return postRepository.countByUserId(userId);
-    }
-
-    public void updateProfileImage(Long userId, String imageUrl) {
-        Set<Long> postIds = cacheService.getUserPostIds(userId);
-        if(postIds == null){
-            return;
-        }
-        postIds.stream().map(cacheService::getCachedPostById)
-                .filter(Objects::nonNull)
-                .forEach(postData -> postData.setProfilePicture(imageUrl));
     }
 }

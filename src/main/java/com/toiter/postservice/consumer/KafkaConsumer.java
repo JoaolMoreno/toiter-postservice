@@ -3,10 +3,7 @@ package com.toiter.postservice.consumer;
 import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.model.*;
 import com.toiter.postservice.service.CacheService;
-import com.toiter.postservice.service.LikeService;
-import com.toiter.postservice.service.UserClientService;
 import com.toiter.postservice.repository.PostRepository;
-import com.toiter.userservice.model.UserResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
@@ -19,14 +16,10 @@ import java.util.List;
 @Service
 public class KafkaConsumer {
     private final Logger logger = LoggerFactory.getLogger(KafkaConsumer.class);
-    private final LikeService likeService;
-    private final UserClientService userClientService;
     private final CacheService cacheService;
     private final PostRepository postRepository;
 
-    public KafkaConsumer(LikeService likeService, UserClientService userClientService, CacheService cacheService, PostRepository postRepository) {
-        this.likeService = likeService;
-        this.userClientService = userClientService;
+    public KafkaConsumer(CacheService cacheService, PostRepository postRepository) {
         this.cacheService = cacheService;
         this.postRepository = postRepository;
     }
@@ -38,24 +31,18 @@ public class KafkaConsumer {
 
         switch (event) {
             case PostCreatedEvent postCreatedEvent -> {
-                UserResponse userResponse = userClientService.getUserById(postData.getUserId());
-                postData.setUsername(userResponse.getUsername());
-                postData.setDisplayName(userResponse.getDisplayName());
-                postData.setProfilePicture(userClientService.getUserProfilePicture(userResponse.getUsername()));
-                postData.setLikesCount(0);
-                postData.setRepostsCount(0);
-                postData.setViewCount(0);
-                cacheService.cachePostData(postData);
+                if(!cacheService.existsPostById(postCreatedEvent.getPost().getId())){
+                    postData.setLikesCount(0);
+                    postData.setRepostsCount(0);
+                    postData.setViewCount(0);
+                    cacheService.cachePostData(postData);
+
+                }
                 incrementReplyRepostCount(postCreatedEvent);
             }
             case PostDeletedEvent postDeletedEvent -> {
-                UserResponse userResponse = userClientService.getUserById(postData.getUserId());
-                postData.setUsername(userResponse.getUsername());
-                postData.setDisplayName(userResponse.getDisplayName());
-                postData.setProfilePicture(userClientService.getUserProfilePicture(userResponse.getUsername()));
                 cacheService.deletePostData(postData);
                 decrementReplyReposCount(postDeletedEvent);
-                // Lógica de tratamento dos reposts
                 List<Post> reposts = postRepository.findRepostsByRepostParentId(postDeletedEvent.getPost().getId());
                 for (Post repost : reposts) {
                     if (repost.getContent() == null || repost.getContent().isEmpty()) {
@@ -141,11 +128,7 @@ public class KafkaConsumer {
             cacheService.cachePostData(postData);
             logger.debug("Like count incremented for post: {}, likes: {}", event.getPostId(), postData.getLikesCount());
         }
-        if(increment == 1) {
-            likeService.registerLikeInRedis(event.getUserId(), event.getPostId());
-        } else {
-            likeService.removeLikeFromRedis(event.getUserId(), event.getPostId());
-        }
+        cacheService.setLikeStatus(event.getUserId(), event.getPostId(), increment == 1);
     }
 
     @KafkaListener(topics = "post-viewed-topic", groupId = "view-event-consumers")

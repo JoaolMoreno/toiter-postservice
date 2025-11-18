@@ -11,16 +11,51 @@ import java.util.Set;
 
 @Service
 public class CacheService {
-    private final Logger logger = LoggerFactory.getLogger(PostService.class);
+    private final Logger logger = LoggerFactory.getLogger(CacheService.class);
     private final String POST_ID_DATA_KEY_PREFIX = "post:id:";
-    private final String POST_PARENTID_DATA_KEY_PREFIX = "post:parentid:";
-    private final String POST_REPOSTID_DATA_KEY_PREFIX = "post:repostid:";
+    private final String LIKE_KEY_PREFIX = "like:user:";
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final RedisTemplate<String, Long> redisTemplateForSet;
+    private final RedisTemplate<String, Boolean> redisTemplateForLike;
 
-    public CacheService(RedisTemplate<String, PostData> redisTemplateForPostData, RedisTemplate<String, Long> redisTemplateForSet) {
+    public CacheService(RedisTemplate<String, PostData> redisTemplateForPostData, RedisTemplate<String, Long> redisTemplateForSet, RedisTemplate<String, Boolean> redisTemplateForLike) {
         this.redisTemplateForPostData = redisTemplateForPostData;
         this.redisTemplateForSet = redisTemplateForSet;
+        this.redisTemplateForLike = redisTemplateForLike;
+    }
+
+    private PostData sanitizeForCache(PostData source) {
+        if (source == null) return null;
+        PostData sanitized = new PostData();
+        // Core identifiers and structure
+        sanitized.setId(source.getId());
+        sanitized.setParentPostId(source.getParentPostId());
+        sanitized.setRepostParentId(source.getRepostParentId());
+        sanitized.setRepost(source.getRepost());
+        sanitized.setReply(source.getReply());
+        sanitized.setUserId(source.getUserId());
+
+        // Post content/media
+        sanitized.setContent(source.getContent());
+        sanitized.setMediaUrl(source.getMediaUrl());
+
+        // Counters/state
+        sanitized.setLikesCount(source.getLikesCount());
+        sanitized.setRepliesCount(source.getRepliesCount());
+        sanitized.setRepostsCount(source.getRepostsCount());
+        sanitized.setViewCount(source.getViewCount());
+        sanitized.setDeleted(source.isDeleted());
+        sanitized.setCreatedAt(source.getCreatedAt());
+
+        // User data is not Cached
+        sanitized.setUsername(null);
+        sanitized.setDisplayName(null);
+        sanitized.setProfilePicture(null);
+        sanitized.setIsLiked(null);
+        // Avoiding cache on nested repost payload to keep cache strictly post-only and small
+        sanitized.setRepostPostData(null);
+
+        return sanitized;
     }
 
     public void cachePostData(PostData postData) {
@@ -29,7 +64,8 @@ public class CacheService {
 
         logger.debug("Caching post data for ID: {}", postData.getId());
 
-        redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
+        PostData toCache = sanitizeForCache(postData);
+        redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), toCache, Duration.ofHours(1));
         redisTemplateForSet.opsForSet().add(userIndexKey, postData.getId());
         redisTemplateForSet.expire(userIndexKey, Duration.ofHours(1));
 
@@ -40,10 +76,17 @@ public class CacheService {
         logger.debug("Fetching post data for ID on Cache: {}", postId);
         PostData post = redisTemplateForPostData.opsForValue().get(POST_ID_DATA_KEY_PREFIX + postId);
         if(post != null) {
+            logger.debug("CACHE HIT: post data found for ID: {}", postId);
             redisTemplateForPostData.expire(POST_ID_DATA_KEY_PREFIX + postId, Duration.ofHours(1));
             return post;
         }
+        logger.debug("CACHE MISS: post data not found for ID: {}", postId);
         return null;
+    }
+
+    public boolean existsPostById(Long postId) {
+        logger.debug("Checking existence of post data for ID: {}", postId);
+        return redisTemplateForPostData.hasKey(POST_ID_DATA_KEY_PREFIX + postId);
     }
 
     public void deletePostData(PostData postData) {
@@ -51,7 +94,10 @@ public class CacheService {
         logger.debug("Deleting post data for ID: {}", userId);
         String userIndexKey = String.format("user:posts:%s", userId);
 
-        redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), postData, Duration.ofHours(1));
+
+        PostData toCache = sanitizeForCache(postData);
+        redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), toCache, Duration.ofHours(1));
+
         redisTemplateForSet.opsForSet().remove(userIndexKey);
     }
 
@@ -59,5 +105,24 @@ public class CacheService {
         String userIndexKey = "user:posts:" + userId;
         logger.debug("Fetching post IDs for user ID: {}", userId);
         return redisTemplateForSet.opsForSet().members(userIndexKey);
+    }
+
+    public Boolean getLikeStatus(Long userId, Long postId) {
+        String likeKey = LIKE_KEY_PREFIX + userId + ":post:" + postId;
+        logger.debug("Fetching like status for user ID: {} and post ID: {}", userId, postId);
+        Boolean liked = redisTemplateForLike.opsForValue().get(likeKey);
+        if (liked != null) {
+            redisTemplateForLike.expire(likeKey, Duration.ofHours(1));
+            logger.debug("CACHE HIT: like status found for user {} post {}: {}", userId, postId, liked);
+        } else {
+            logger.debug("CACHE MISS: like status not found for user {} post {}", userId, postId);
+        }
+        return liked;
+    }
+
+    public void setLikeStatus(Long userId, Long postId, boolean liked) {
+        String likeKey = LIKE_KEY_PREFIX + userId + ":post:" + postId;
+        logger.debug("Setting like status for user ID: {} and post ID: {} to {}", userId, postId, liked);
+        redisTemplateForLike.opsForValue().set(likeKey, liked, Duration.ofHours(1));
     }
 }
