@@ -6,6 +6,7 @@ import com.toiter.postservice.service.CacheService;
 import com.toiter.postservice.service.LikeService;
 import com.toiter.postservice.service.UserClientService;
 import com.toiter.postservice.repository.PostRepository;
+import com.toiter.userservice.model.UserResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;

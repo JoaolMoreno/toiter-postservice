@@ -1,6 +1,6 @@
 package com.toiter.postservice.service;
 
-import com.toiter.postservice.model.UserResponse;
+import com.toiter.userservice.model.UserResponse;
 import com.toiter.userservice.model.UserPublicData;
 import com.toiter.userservice.entity.User;
 import org.slf4j.Logger;

@@ -1,4 +1,4 @@
-package com.toiter.postservice.model;
+package com.toiter.userservice.model;
 
 import java.time.LocalDateTime;
 

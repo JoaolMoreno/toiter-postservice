@@ -6,6 +6,7 @@ import com.toiter.postservice.model.*;
 import com.toiter.postservice.producer.KafkaProducer;
 import com.toiter.postservice.repository.PostRepository;
 import com.toiter.postservice.repository.ViewRepository;
+import com.toiter.userservice.model.UserResponse;
 import jakarta.validation.constraints.NotNull;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.slf4j.Logger;
