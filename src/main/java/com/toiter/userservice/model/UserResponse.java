@@ -1,6 +1,7 @@
 package com.toiter.userservice.model;
 
 import java.time.LocalDateTime;
+import com.toiter.userservice.entity.User;
 
 public class UserResponse {
     private Long id;
@@ -13,6 +14,17 @@ public class UserResponse {
     private LocalDateTime creationDate;
 
     public UserResponse() {}
+
+    public UserResponse(User user) {
+        this.id = user.getId();
+        this.username = user.getUsername();
+        this.displayName = user.getDisplayName();
+        this.email = user.getEmail();
+        this.bio = user.getBio();
+        this.profileImageId = user.getProfileImageId();
+        this.headerImageId = user.getHeaderImageId();
+        this.creationDate = user.getCreationDate();
+    }
 
     public Long getId() {
         return id;

@@ -1,6 +1,8 @@
 package com.toiter.postservice.service;
 
 import com.toiter.postservice.model.PostData;
+import com.toiter.userservice.entity.User;
+import com.toiter.userservice.model.UserPublicData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -17,11 +19,17 @@ public class CacheService {
     private final RedisTemplate<String, PostData> redisTemplateForPostData;
     private final RedisTemplate<String, Long> redisTemplateForSet;
     private final RedisTemplate<String, Boolean> redisTemplateForLike;
+    private final RedisTemplate<String, Long> redisTemplateForLong;
+    private final RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData;
+    private final RedisTemplate<String, User> redisTemplateForUser;
 
-    public CacheService(RedisTemplate<String, PostData> redisTemplateForPostData, RedisTemplate<String, Long> redisTemplateForSet, RedisTemplate<String, Boolean> redisTemplateForLike) {
+    public CacheService(RedisTemplate<String, PostData> redisTemplateForPostData, RedisTemplate<String, Long> redisTemplateForSet, RedisTemplate<String, Boolean> redisTemplateForLike, RedisTemplate<String, Long> redisTemplateForLong, RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData, RedisTemplate<String, User> redisTemplateForUser) {
         this.redisTemplateForPostData = redisTemplateForPostData;
         this.redisTemplateForSet = redisTemplateForSet;
         this.redisTemplateForLike = redisTemplateForLike;
+        this.redisTemplateForLong = redisTemplateForLong;
+        this.redisTemplateForUserPublicData = redisTemplateForUserPublicData;
+        this.redisTemplateForUser = redisTemplateForUser;
     }
 
     private PostData sanitizeForCache(PostData source) {
@@ -124,5 +132,21 @@ public class CacheService {
         String likeKey = LIKE_KEY_PREFIX + userId + ":post:" + postId;
         logger.debug("Setting like status for user ID: {} and post ID: {} to {}", userId, postId, liked);
         redisTemplateForLike.opsForValue().set(likeKey, liked, Duration.ofHours(1));
+    }
+
+    public Long getCachedUserIdByUsername(String username) {
+        String cacheKey = "user:username:" + username;
+        Number rawValue = redisTemplateForLong.opsForValue().get(cacheKey);
+        return rawValue != null ? rawValue.longValue() : null;
+    }
+
+    public User getCachedUserById(Long userId) {
+        String cacheKey = "user:id:" + userId;
+        return redisTemplateForUser.opsForValue().get(cacheKey);
+    }
+
+    public UserPublicData getCachedUserPublicData(Long userId) {
+        String cacheKey = "user:public:" + userId;
+        return redisTemplateForUserPublicData.opsForValue().get(cacheKey);
     }
 }

@@ -6,7 +6,6 @@ import com.toiter.userservice.entity.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -22,9 +21,7 @@ import org.springframework.web.client.RestTemplate;
 public class UserClientService {
 
     private final RestTemplate restTemplate;
-    private final RedisTemplate<String, Long> redisTemplateForLong;
-    private final RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData;
-    private final RedisTemplate<String, User> redisTemplateForUser;
+    private final CacheService cacheService;
 
     @Value("${service.user.url}")
     private String userServiceUrl;
@@ -37,19 +34,15 @@ public class UserClientService {
 
     private final Logger logger = LoggerFactory.getLogger(UserClientService.class);
 
-    public UserClientService(RestTemplate restTemplate, RedisTemplate<String, Long> redisTemplateForLong, RedisTemplate<String, UserPublicData> redisTemplateForUserPublicData, RedisTemplate<String, User> redisTemplateForUser) {
+    public UserClientService(RestTemplate restTemplate, CacheService cacheService) {
         this.restTemplate = restTemplate;
-        this.redisTemplateForLong = redisTemplateForLong;
-        this.redisTemplateForUserPublicData = redisTemplateForUserPublicData;
-        this.redisTemplateForUser = redisTemplateForUser;
+        this.cacheService = cacheService;
     }
 
     public Long getUserIdByUsername(String username) {
         logger.debug("Fetching user ID for username: {}", username);
 
-        String cacheKey = "user:username:" + username;
-        Number rawValue = redisTemplateForLong.opsForValue().get(cacheKey);
-        Long cachedUserId = rawValue != null ? rawValue.longValue() : null;
+        Long cachedUserId = cacheService.getCachedUserIdByUsername(username);
         if (cachedUserId != null) {
             logger.debug("CACHE HIT: user id for username '{}' -> {}", username, cachedUserId);
             return cachedUserId;
@@ -76,20 +69,10 @@ public class UserClientService {
     public UserResponse getUserById(Long userId) {
         logger.debug("Fetching user for user ID: {}", userId);
 
-        String cacheKey = "user:id:" + userId;
-        User cachedUser = redisTemplateForUser.opsForValue().get(cacheKey);
+        User cachedUser = cacheService.getCachedUserById(userId);
         if (cachedUser != null) {
             logger.debug("CACHE HIT: user object found in cache for user ID: {}", userId);
-            UserResponse userResponse = new UserResponse();
-            userResponse.setId(cachedUser.getId());
-            userResponse.setUsername(cachedUser.getUsername());
-            userResponse.setDisplayName(cachedUser.getDisplayName());
-            userResponse.setEmail(cachedUser.getEmail());
-            userResponse.setBio(cachedUser.getBio());
-            userResponse.setProfileImageId(cachedUser.getProfileImageId());
-            userResponse.setHeaderImageId(cachedUser.getHeaderImageId());
-            userResponse.setCreationDate(cachedUser.getCreationDate());
-            return userResponse;
+            return new UserResponse(cachedUser);
         }
 
         logger.debug("CACHE MISS: user object not found in cache for user ID: {}. Falling back to user service.", userId);
@@ -138,8 +121,7 @@ public class UserClientService {
     public UserPublicData getUserPublicData(Long userId) {
         logger.debug("Fetching public data for user ID: {}", userId);
 
-        String cacheKey = "user:public:" + userId;
-        UserPublicData cachedData = redisTemplateForUserPublicData.opsForValue().get(cacheKey);
+        UserPublicData cachedData = cacheService.getCachedUserPublicData(userId);
         if (cachedData != null) {
             logger.debug("CACHE HIT: public data found in cache for user ID: {}", userId);
             return cachedData;
