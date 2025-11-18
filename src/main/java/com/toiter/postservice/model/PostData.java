@@ -18,7 +18,6 @@ public class PostData {
 
     private Boolean isReply;
 
-    @JsonIgnore
     private Long userId;
 
     private String username;
