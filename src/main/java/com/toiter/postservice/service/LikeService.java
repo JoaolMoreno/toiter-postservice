@@ -75,7 +75,7 @@ public class LikeService {
             } else {
                 logger.warn("Like not found for post ID: {} and user ID: {}", postId, userId);
             }
-        } catch (ResourceNotFoundException _) {
+        } catch (ResourceNotFoundException e) {
         }
     }
 
