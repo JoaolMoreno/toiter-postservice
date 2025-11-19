@@ -4,6 +4,23 @@ O **Post Service** é um dos microsserviços do ecossistema **Toiter**, respons�
 
 ---
 
+### **🔒 Atualizações Recentes - Segurança**
+
+**Refatoração de Autenticação (2025)**
+- ✅ Implementado suporte a **cookies HttpOnly** para proteger JWT contra XSS
+- ✅ Mantido suporte a **header Authorization** como fallback para clientes não-browser
+- ✅ **15 testes automatizados** cobrindo todos os fluxos de autenticação
+- ✅ **0 vulnerabilidades** detectadas no CodeQL
+- ✅ Logs sanitizados (nunca expõem o conteúdo do JWT)
+- ✅ Documentação completa em [SECURITY.md](SECURITY.md)
+
+**Benefícios:**
+- Maior segurança para aplicações web (proteção contra XSS)
+- Compatibilidade com múltiplos tipos de clientes (browser, mobile, CLI)
+- Comunicação segura entre microsserviços
+
+---
+
 ### **Funcionalidades Principais**
 
 #### **1. Gerenciamento de Postagens**
@@ -31,6 +48,8 @@ O **Post Service** é um dos microsserviços do ecossistema **Toiter**, respons�
 
 O Post Service implementa um modelo de autenticação seguro baseado em cookies HttpOnly:
 
+> 📖 **Documentação Completa:** Consulte [SECURITY.md](SECURITY.md) para detalhes completos sobre o modelo de segurança, fluxos de autenticação e troubleshooting.
+
 ##### **Autenticação para Clientes Browser (Frontend Web)**
 - Utiliza **cookies HttpOnly** para armazenar o JWT (`accessToken`)
 - O token **nunca** é exposto ao JavaScript do navegador
@@ -47,10 +66,10 @@ O Post Service implementa um modelo de autenticação seguro baseado em cookies 
 - Protegidos com token compartilhado (`shared-key`)
 - Usados para comunicação serviço-a-serviço
 - Não dependem de cookies de usuário
-- Exemplo: `/internal/posts/count`
+- Exemplo: `/api/internal/posts/count`
 
 ##### **Fluxo de Autenticação**
-1. **Para rotas públicas não-autenticadas**: O filtro permite acesso direto (ex: `/swagger-ui`, `/posts/thread/{id}`)
+1. **Para rotas públicas não-autenticadas**: O filtro permite acesso direto (ex: `/swagger-ui`, `/api/posts/thread/{id}`)
 2. **Para rotas internas**: Valida o token compartilhado no header `Authorization`
 3. **Para rotas autenticadas**:
    - Primeiro tenta ler o JWT do cookie HttpOnly `accessToken`
@@ -69,13 +88,32 @@ O Post Service implementa um modelo de autenticação seguro baseado em cookies 
 
 ### **Endpoints Disponíveis**
 
+> **Nota:** Todos os endpoints possuem o prefixo `/api` (contexto da aplicação).
+
 #### **1. Postagens**
-| Método   | Endpoint              | Descrição                                 |
-|----------|-----------------------|-------------------------------------------|
-| `POST`   | `/posts`              | Cria uma nova postagem.                   |
-| `GET`    | `/posts/{id}`         | Retorna os detalhes de uma postagem.      |
-| `GET`    | `/posts/user/{userId}`| Lista as postagens de um usuário.         |
-| `DELETE` | `/posts/{id}`         | Exclui uma postagem.                      |
+| Método   | Endpoint                    | Descrição                                 | Autenticação |
+|----------|-----------------------------|-------------------------------------------|--------------|
+| `POST`   | `/api/posts`                | Cria uma nova postagem.                   | JWT (Cookie ou Header) |
+| `GET`    | `/api/posts?page=0&size=10` | Lista postagens com paginação.            | JWT (Cookie ou Header) |
+| `GET`    | `/api/posts/{id}`           | Retorna os detalhes de uma postagem.      | JWT (Cookie ou Header) |
+| `GET`    | `/api/posts/user/{username}`| Lista as postagens de um usuário.         | JWT (Cookie ou Header) |
+| `GET`    | `/api/posts/parent/{id}`    | Lista respostas de uma postagem.          | JWT (Cookie ou Header) |
+| `GET`    | `/api/posts/thread/{id}`    | Visualiza thread completa (público).      | Não requerida |
+| `DELETE` | `/api/posts/{id}`           | Exclui uma postagem.                      | JWT (Cookie ou Header) |
+| `POST`   | `/api/posts/{id}/like`      | Curte uma postagem.                       | JWT (Cookie ou Header) |
+| `DELETE` | `/api/posts/{id}/like`      | Remove curtida de uma postagem.           | JWT (Cookie ou Header) |
+| `POST`   | `/api/posts/{id}/view`      | Registra visualização de uma postagem.    | JWT (Cookie ou Header) |
+
+#### **2. Endpoints Internos (Serviço-a-Serviço)**
+| Método   | Endpoint                           | Descrição                          | Autenticação |
+|----------|------------------------------------|------------------------------------|--------------|
+| `GET`    | `/api/internal/posts/count`        | Retorna contagem de posts do usuário | Shared Key   |
+
+#### **3. Documentação**
+| Método   | Endpoint                    | Descrição                                 |
+|----------|-----------------------------|-------------------------------------------|
+| `GET`    | `/api/api-docs`             | Documentação Swagger UI                   |
+| `GET`    | `/api/v3/api-docs`          | Especificação OpenAPI JSON                |
 
 ---
 
@@ -144,92 +182,189 @@ O Post Service implementa um modelo de autenticação seguro baseado em cookies 
 
 ### **Como Executar**
 
+#### **Requisitos**
+- Java 21 ou superior
+- PostgreSQL
+- Redis
+- Apache Kafka
+- Gradle (incluído via wrapper)
+
 1. **Clone o repositório:**
    ```bash
    git clone https://github.com/JoaolMoreno/toiter-postservice.git
-   cd toiter-post-service
+   cd toiter-postservice
    ```
 
-2. **Configure o arquivo `application.properties`:**
-    ```properties
-    server.port=9991
-
-    # Banco de dados
-    spring.datasource.url=jdbc:postgresql://localhost:5432/toiter
-    spring.datasource.username=postgres
-    spring.datasource.password=postgres
-    spring.jpa.hibernate.ddl-auto=update
-
-    # Mensageria Kafka
-    spring.kafka.bootstrap-servers=localhost:9092
-
-    # Token compartilhado para endpoints internos
-    service.shared-key=shared-secret-key
-
-    # JWT
-    jwt.secret-key=jwt-secret-key
-    ```
+2. **Configure as variáveis de ambiente:**
+   
+   Copie o arquivo `.env.example` e configure as variáveis:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edite o arquivo `.env` com suas configurações:
+   ```properties
+   # Banco de dados PostgreSQL
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=sua-senha
+   SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/toiter
+   SPRING_DATASOURCE_USERNAME=postgres
+   SPRING_DATASOURCE_PASSWORD=sua-senha
+   
+   # Redis
+   SPRING_DATA_REDIS_HOST=localhost
+   SPRING_DATA_REDIS_PORT=6379
+   SPRING_DATA_REDIS_PASSWORD=
+   
+   # Kafka
+   SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+   
+   # JWT - Deve ser o mesmo usado no User Service
+   JWT_SECRET=sua-chave-secreta-jwt
+   JWT_ACCESS_TOKEN_EXPIRATION=3600000
+   JWT_REFRESH_TOKEN_EXPIRATION=86400000
+   
+   # Integração com outros serviços
+   SERVICE_USER_URL=http://localhost:9990/api/internal
+   SERVICE_SHARED_KEY=T0iter
+   
+   # Servidor
+   SERVER_URL=http://localhost:9991
+   
+   # Hibernate
+   SPRING_JPA_HIBERNATE_DDL-AUTO=update
+   SPRING_JPA_DATABASE-PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+   SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA=public
+   ```
 
 3. **Suba os serviços necessários:**
-    - PostgreSQL, Kafka e o serviço atual.
-    - Use o Docker Compose:
-      ```bash
-      docker-compose up
-      ```
+   
+   Use o Docker Compose para subir PostgreSQL, Redis e Kafka:
+   ```bash
+   docker-compose up -d
+   ```
 
 4. **Execute o microsserviço:**
    ```bash
-   ./mvnw spring-boot:run
+   ./gradlew bootRun
+   ```
+   
+   Ou para gerar o JAR e executar:
+   ```bash
+   ./gradlew clean build
+   java -jar build/libs/app.jar
    ```
 
 5. **Acesse a API:**
-    - Teste os endpoints usando `curl`, Postman ou outra ferramenta.
+   
+   A API estará disponível em `http://localhost:9991/api`
+   
+   Documentação Swagger: `http://localhost:9991/api/api-docs`
 
 6. **Testando Autenticação:**
-    
-    **Com Cookie HttpOnly (simulando browser):**
-    ```bash
-    # O cookie é normalmente definido pelo serviço de autenticação
-    # Para testar manualmente, você pode fazer:
-    curl -X GET http://localhost:9991/posts?page=0&size=10 \
-      -H "Cookie: accessToken=seu-jwt-token-aqui"
-    ```
-    
-    **Com Header Authorization (cliente não-browser):**
-    ```bash
-    curl -X GET http://localhost:9991/posts?page=0&size=10 \
-      -H "Authorization: Bearer seu-jwt-token-aqui"
-    ```
-    
-    **Endpoint Interno (serviço-a-serviço):**
-    ```bash
-    curl -X GET http://localhost:9991/internal/posts/count?userId=123 \
-      -H "Authorization: Bearer shared-secret-key"
-    ```
+   
+   > **Nota:** O contexto da aplicação é `/api`, então todos os endpoints devem incluir este prefixo.
+   
+   **Com Cookie HttpOnly (simulando browser):**
+   ```bash
+   # O cookie é definido automaticamente pelo User Service após login
+   # Para testar manualmente:
+   curl -X GET "http://localhost:9991/api/posts?page=0&size=10" \
+     -H "Cookie: accessToken=seu-jwt-token-aqui"
+   ```
+   
+   **Com Header Authorization (cliente não-browser):**
+   ```bash
+   curl -X GET "http://localhost:9991/api/posts?page=0&size=10" \
+     -H "Authorization: Bearer seu-jwt-token-aqui"
+   ```
+   
+   **Endpoint Interno (serviço-a-serviço):**
+   ```bash
+   curl -X GET "http://localhost:9991/api/internal/posts/count?userId=123" \
+     -H "Authorization: Bearer T0iter"
+   ```
+
+7. **Executar Testes:**
+   ```bash
+   ./gradlew test
+   ```
+   
+   Para ver o relatório de testes:
+   ```bash
+   ./gradlew test --info
+   # Relatório HTML em: build/reports/tests/test/index.html
+   ```
 
 ---
 
 ### **Estrutura do Projeto**
 
 ```
-toiter-post-service/
+toiter-postservice/
 ├── src/
 │   ├── main/
-│   │   ├── java/com/toiter/
-│   │   │   ├── postservice/
-│   │   │   │   ├── controller/       # Controladores REST
-│   │   │   │   ├── service/          # Lógica de negócio
-│   │   │   │   ├── repository/       # Acesso ao banco de dados
-│   │   │   │   ├── model/            # DTOs e eventos Kafka
-│   │   │   │   ├── entity/           # Entidades JPA
-│   │   │   │   ├── config/           # Configurações do Spring e Kafka
-│   │   │   │   ├── producer/         # Emissão de eventos Kafka
-│   │   │   │   ├── consumer/         # Consumo de eventos Kafka
-│   │   │   │   └── exception/        # Tratamento de exceções globais
+│   │   ├── java/com/toiter/postservice/
+│   │   │   ├── controller/       # Controladores REST
+│   │   │   │   ├── PostController.java
+│   │   │   │   └── InternalPostController.java
+│   │   │   ├── service/          # Lógica de negócio
+│   │   │   │   ├── PostService.java
+│   │   │   │   ├── LikeService.java
+│   │   │   │   ├── JwtService.java
+│   │   │   │   ├── UserClientService.java
+│   │   │   │   └── CacheService.java
+│   │   │   ├── repository/       # Acesso ao banco de dados
+│   │   │   ├── model/            # DTOs e eventos Kafka
+│   │   │   ├── entity/           # Entidades JPA
+│   │   │   ├── config/           # Configurações do Spring e Kafka
+│   │   │   │   ├── JwtAuthenticationFilter.java
+│   │   │   │   └── SecurityConfig.java
+│   │   │   ├── producer/         # Emissão de eventos Kafka
+│   │   │   └── consumer/         # Consumo de eventos Kafka
 │   │   └── resources/
-│   │       ├── application.properties    # Configurações da aplicação
-└── docker-compose.yml                # Configuração para subir serviços
+│   │       └── application.properties    # Configurações (usa variáveis de ambiente)
+│   └── test/
+│       └── java/com/toiter/postservice/
+│           └── config/
+│               └── JwtAuthenticationFilterTest.java
+├── build.gradle                  # Configuração do Gradle
+├── gradlew                       # Gradle Wrapper (Unix)
+├── gradlew.bat                   # Gradle Wrapper (Windows)
+├── docker-compose.yml            # Configuração para serviços de infraestrutura
+├── .env.example                  # Exemplo de variáveis de ambiente
+├── README.md                     # Este arquivo
+└── SECURITY.md                   # Documentação detalhada de segurança
 ```
+
+---
+
+### **Testes**
+
+O projeto inclui testes automatizados para garantir a qualidade e segurança do código:
+
+#### **Testes de Autenticação**
+- **JwtAuthenticationFilterTest**: 15 testes cobrindo todos os cenários de autenticação
+  - Autenticação via cookie HttpOnly
+  - Fallback para header Authorization
+  - Precedência de cookie sobre header
+  - Validação de rotas internas com shared key
+  - Tratamento de tokens inválidos/expirados
+  - Acesso a rotas públicas
+
+#### **Executar os Testes**
+```bash
+# Executar todos os testes
+./gradlew test
+
+# Executar testes específicos
+./gradlew test --tests JwtAuthenticationFilterTest
+
+# Gerar relatório de cobertura
+./gradlew test jacocoTestReport
+```
+
+Os relatórios de teste são gerados em `build/reports/tests/test/index.html`
 
 ---
 
