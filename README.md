@@ -28,8 +28,42 @@ O **Post Service** é um dos microsserviços do ecossistema **Toiter**, respons�
     - **Repostagens**: Relacionadas ao `repost_id`.
 
 #### **5. Autenticação e Autorização**
-- Proteção dos endpoints públicos com JWT.
-- Endpoints internos acessíveis somente com um token compartilhado.
+
+O Post Service implementa um modelo de autenticação seguro baseado em cookies HttpOnly:
+
+##### **Autenticação para Clientes Browser (Frontend Web)**
+- Utiliza **cookies HttpOnly** para armazenar o JWT (`accessToken`)
+- O token **nunca** é exposto ao JavaScript do navegador
+- Proteção contra ataques XSS (Cross-Site Scripting)
+- O cookie é enviado automaticamente pelo navegador em cada requisição
+- CORS configurado com `credentials: true` para permitir envio de cookies
+
+##### **Autenticação para Clientes Não-Browser**
+- Clientes móveis, CLI e outros serviços podem usar o header `Authorization: Bearer <token>`
+- Funciona como fallback quando cookies não estão disponíveis
+- Útil para testes e integrações
+
+##### **Endpoints Internos (`/internal/**`)**
+- Protegidos com token compartilhado (`shared-key`)
+- Usados para comunicação serviço-a-serviço
+- Não dependem de cookies de usuário
+- Exemplo: `/internal/posts/count`
+
+##### **Fluxo de Autenticação**
+1. **Para rotas públicas não-autenticadas**: O filtro permite acesso direto (ex: `/swagger-ui`, `/posts/thread/{id}`)
+2. **Para rotas internas**: Valida o token compartilhado no header `Authorization`
+3. **Para rotas autenticadas**:
+   - Primeiro tenta ler o JWT do cookie HttpOnly `accessToken`
+   - Se não encontrar cookie, tenta o header `Authorization` como fallback
+   - Valida o token e preenche o contexto de segurança do Spring
+   - Em caso de token inválido/expirado, retorna `401 Unauthorized`
+
+##### **Segurança Implementada**
+- **Nunca loga o conteúdo do JWT** - apenas userId e mensagens genéricas
+- **Mensagens de erro genéricas** - não expõe detalhes do token
+- **Cookie HttpOnly** - previne acesso via JavaScript
+- **Validação rigorosa** - expira tokens e rejeita tokens malformados
+- **Separação clara** - rotas públicas, autenticadas e internas têm tratamentos distintos
 
 ---
 
@@ -91,12 +125,20 @@ O **Post Service** é um dos microsserviços do ecossistema **Toiter**, respons�
         - `post-deleted-topic`
 
 #### **3. Segurança**
-- **Spring Security com JWT**:
-    - Proteção de endpoints públicos.
-    - Configuração do contexto de autenticação com base no JWT.
+- **Spring Security com JWT e HttpOnly Cookies**:
+    - Autenticação principal via cookies HttpOnly para clientes browser
+    - Fallback para header `Authorization` para clientes não-browser
+    - Proteção contra XSS mantendo JWT fora do alcance do JavaScript
+    - CORS configurado com `credentials: true` para suportar cookies
 
 - **Token Compartilhado para Endpoints Internos**:
-    - Acesso restrito aos endpoints `/internal/**` via token compartilhado (`shared-key`).
+    - Acesso restrito aos endpoints `/internal/**` via token compartilhado (`shared-key`)
+    - Usado para comunicação segura entre microsserviços
+
+- **Configurações de Segurança**:
+    - `JwtAuthenticationFilter`: Extrai e valida JWT de cookies ou headers
+    - `SecurityConfig`: Define regras de autorização e configuração CORS
+    - Logs seguros: nunca expõe conteúdo do JWT
 
 ---
 
@@ -142,6 +184,28 @@ O **Post Service** é um dos microsserviços do ecossistema **Toiter**, respons�
 
 5. **Acesse a API:**
     - Teste os endpoints usando `curl`, Postman ou outra ferramenta.
+
+6. **Testando Autenticação:**
+    
+    **Com Cookie HttpOnly (simulando browser):**
+    ```bash
+    # O cookie é normalmente definido pelo serviço de autenticação
+    # Para testar manualmente, você pode fazer:
+    curl -X GET http://localhost:9991/posts?page=0&size=10 \
+      -H "Cookie: accessToken=seu-jwt-token-aqui"
+    ```
+    
+    **Com Header Authorization (cliente não-browser):**
+    ```bash
+    curl -X GET http://localhost:9991/posts?page=0&size=10 \
+      -H "Authorization: Bearer seu-jwt-token-aqui"
+    ```
+    
+    **Endpoint Interno (serviço-a-serviço):**
+    ```bash
+    curl -X GET http://localhost:9991/internal/posts/count?userId=123 \
+      -H "Authorization: Bearer shared-secret-key"
+    ```
 
 ---
 
