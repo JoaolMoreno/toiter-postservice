@@ -7,6 +7,8 @@ import com.toiter.postservice.model.PostThread;
 import com.toiter.postservice.service.JwtService;
 import com.toiter.postservice.service.LikeService;
 import com.toiter.postservice.service.PostService;
+import com.toiter.userservice.model.Views;
+import com.fasterxml.jackson.annotation.JsonView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -57,6 +59,7 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping
+    @JsonView(Views.Public.class)
     public Map<String, Object> getPosts(
             @RequestParam @Parameter(description = "Número da página") int page,
             @RequestParam @Parameter(description = "Tamanho da página") int size,
@@ -82,6 +85,7 @@ public class PostController {
                     content = @Content)
     })
     @PostMapping
+    @JsonView(Views.Public.class)
     public ResponseEntity<PostData> createPost(
             @Valid @RequestBody PostRequest post,
             Authentication authentication) {
@@ -104,6 +108,7 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping("/{id}")
+    @JsonView(Views.Public.class)
     public ResponseEntity<PostData> getPostById(@PathVariable Long id,
                                                 Authentication authentication) {
         logger.debug("getPostById called with id: {}", id);
@@ -124,6 +129,7 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping("/parent/{parentPostId}")
+    @JsonView(Views.Public.class)
     public Map<String, Object> getPostsByParentPostId(
             @PathVariable Long parentPostId,
             @RequestParam @Parameter(description = "Número da página") int page,
@@ -147,6 +153,7 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping("/thread/{parentPostId}")
+    @JsonView(Views.Public.class)
     public PostThread getThreadByParentPostId(
             @PathVariable Long parentPostId,
             @RequestParam @NotNull @Parameter(description = "Número da página") int page,
@@ -169,6 +176,7 @@ public class PostController {
                     content = @Content)
     })
     @GetMapping("/user/{username}")
+    @JsonView(Views.Public.class)
     public Map<String, Object> getPostsByUser(
             @PathVariable String username,
             @RequestParam @Parameter(description = "Número da página") int page,

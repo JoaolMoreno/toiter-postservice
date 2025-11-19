@@ -1,50 +1,69 @@
 package com.toiter.postservice.model;
 
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonView;
+import com.toiter.userservice.model.Views;
 import com.toiter.postservice.entity.Post;
 
 import java.time.LocalDateTime;
 
 public class PostData {
 
+    @JsonView(Views.Public.class)
     private Long id;
 
+    @JsonView(Views.Public.class)
     private Long parentPostId;
 
+    @JsonView(Views.Public.class)
     private Long repostParentId;
 
+    @JsonView(Views.Public.class)
     private Boolean isRepost;
 
+    @JsonView(Views.Public.class)
     private Boolean isReply;
 
+    @JsonView(Views.Cache.class)
     private Long userId;
 
+    @JsonView(Views.Public.class)
     private String username;
 
+    @JsonView(Views.Public.class)
     private String displayName;
 
+    @JsonView(Views.Public.class)
     private String profilePicture;
 
+    @JsonView(Views.Public.class)
     private String content;
 
+    @JsonView(Views.Public.class)
     private String mediaUrl;
 
+    @JsonView(Views.Public.class)
     private Integer likesCount = 0;
 
+    @JsonView(Views.Public.class)
     private Integer repliesCount = 0;
 
+    @JsonView(Views.Public.class)
     private Integer repostsCount = 0;
 
+    @JsonView(Views.Public.class)
     private Integer viewCount = 0;
 
+    @JsonView(Views.Public.class)
     private PostData repostPostData;
 
+    @JsonView(Views.Public.class)
     private Boolean isLiked;
 
-    @JsonIgnore
+    @JsonView(Views.Cache.class)
     private boolean deleted;
 
+    @JsonView(Views.Public.class)
     private LocalDateTime createdAt;
 
     public PostData() {

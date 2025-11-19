@@ -1,8 +1,12 @@
 package com.toiter.postservice.model;
 
+import com.fasterxml.jackson.annotation.JsonView;
+import com.toiter.userservice.model.Views;
+
 import java.util.List;
 
 public class PostThread {
+    @JsonView(Views.Public.class)
     private PostData parentPost;
     private List<ChildPost> childPosts;
     private boolean hasNext;
@@ -81,7 +85,9 @@ public class PostThread {
     }
 
     public static class ChildPost {
+        @JsonView(Views.Public.class)
         private PostData post;
+        @JsonView(Views.Public.class)
         private List<PostData> childPosts;
 
         public ChildPost() {
@@ -109,4 +115,3 @@ public class PostThread {
         }
     }
 }
-
