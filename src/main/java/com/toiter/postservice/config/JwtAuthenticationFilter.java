@@ -3,8 +3,11 @@ package com.toiter.postservice.config;
 import com.toiter.postservice.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -19,6 +22,8 @@ import java.util.Collections;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtService jwtService;
 
     @Value("${service.shared-key}")
@@ -28,32 +33,48 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.jwtService = jwtService;
     }
 
+    /**
+     * Extrai o JWT do cookie HttpOnly 'accessToken'.
+     * 
+     * @param request HttpServletRequest
+     * @return JWT token se encontrado, null caso contrário
+     */
+    private String extractJwtFromCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+        for (Cookie cookie : request.getCookies()) {
+            if ("accessToken".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        final String authHeader = request.getHeader("Authorization");
+        boolean isInternal = path.startsWith("/internal/") || path.startsWith("/api/internal/");
 
-        logger.info("Request: " + request.getMethod() + " " + request.getRequestURI());
-
-        logger.debug(String.format("Path: %s, AuthHeader: %s", path, authHeader));
+        logger.info("Request: " + request.getMethod() + " " + path);
 
         // Ignorar validação para rotas públicas (já configuradas no SecurityConfig)
-        if ((path.startsWith("/auth/") || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui") || path.startsWith("/posts/thread/"))
-                && (authHeader == null || !authHeader.startsWith("Bearer "))) {
-            logger.debug("Ignorando validação JWT para rota pública");
+        if ((path.startsWith("/auth/") || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui") || path.startsWith("/posts/thread/"))) {
+            logger.debug("Ignorando validação JWT para rota pública: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
 
         // Validação para /internal/** com token compartilhado
-        if (path.startsWith("/internal/") || path.startsWith("/api/internal/")) {
+        if (isInternal) {
             logger.debug("Validando token compartilhado para rota /internal/**");
+            final String authHeader = request.getHeader("Authorization");
             if (authHeader == null || !authHeader.equals("Bearer " + sharedKey)) {
-                logger.warn("Acesso não autorizado para /internal/**");
+                logger.warn("Acesso não autorizado para /internal/** - path: {}", path);
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Acesso não autorizado para /internal/**");
+                response.getWriter().write("Acesso não autorizado");
                 return;
             }
 
@@ -62,17 +83,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        logger.debug("Validando token JWT para outras rotas");
-        // Validação JWT para outros endpoints
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            logger.warn("Token JWT não encontrado ou malformado");
+        // Para rotas não-internas, priorizar cookie HttpOnly 'accessToken'
+        String jwt = extractJwtFromCookie(request);
+        
+        // Fallback: tentar extrair do header Authorization (para clientes não-browser)
+        if (jwt == null) {
+            final String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                jwt = authHeader.substring(7);
+                logger.debug("JWT extraído do header Authorization (fallback)");
+            }
+        } else {
+            logger.debug("JWT extraído do cookie HttpOnly 'accessToken'");
+        }
+
+        // Se não encontrou JWT, prosseguir sem autenticação (usuário anônimo)
+        if (jwt == null) {
+            logger.debug("Nenhum JWT encontrado - prosseguindo sem autenticação");
             filterChain.doFilter(request, response);
             return;
         }
-        logger.debug("Token JWT encontrado");
 
-        final String jwt = authHeader.substring(7);
-
+        // Validar e processar o JWT
         try {
             String username = jwtService.extractUsername(jwt);
 
@@ -87,11 +119,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                    
+                    logger.debug("Usuário autenticado com sucesso - userId: {}", userId);
+                } else {
+                    logger.warn("Token JWT inválido ou expirado");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("Token inválido ou expirado");
+                    return;
                 }
             }
         } catch (Exception e) {
+            logger.error("Erro ao processar token JWT: {}", e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Token JWT inválido ou malformado");
+            response.getWriter().write("Token inválido ou malformado");
             return;
         }
 

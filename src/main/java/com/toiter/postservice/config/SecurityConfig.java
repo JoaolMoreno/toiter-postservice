@@ -49,8 +49,9 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:3000", "https://localhost:3000", "http://localhost", "https://localhost", "https://toiter.joaoplmoreno.com"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(List.of("*")); // Permitir todos os headers
+        configuration.setAllowCredentials(true); // Essencial para cookies HttpOnly
+        configuration.setExposedHeaders(List.of("*")); // Expor headers na resposta
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
