@@ -257,7 +257,7 @@ public class PostService {
 
             kafkaProducer.sendPostViewedEvent(new PostViewedEvent(postId, userId));
 
-        } catch (DataIntegrityViolationException _) {
+        } catch (DataIntegrityViolationException e) {
         }
     }
 
