@@ -1,24 +1,46 @@
 package com.toiter.userservice.model;
 
+import com.fasterxml.jackson.annotation.JsonView;
+
 public class UserPublicData {
+    @JsonView(Views.Cache.class)
+    private Long userId;
+
+    @JsonView(Views.Public.class)
     private String username;
+
+    @JsonView(Views.Public.class)
     private String displayName;
+
+    @JsonView(Views.Public.class)
     private String bio;
+
+    @JsonView(Views.Public.class)
     private Long profileImageId;
+
+    @JsonView(Views.Public.class)
     private Long headerImageId;
+
+    @JsonView(Views.Public.class)
     private Integer followersCount;
+
+    @JsonView(Views.Public.class)
     private Integer followingCount;
+
+    @JsonView(Views.Public.class)
     private Boolean isFollowing;
+
+    @JsonView(Views.Public.class)
     private Boolean isFollowingMe;
-    private Boolean followingMe;
-    private Boolean following;
+
+    @JsonView(Views.Public.class)
     private Integer postsCount;
 
-    public UserPublicData() {}
+    public UserPublicData() {
+    }
 
-    public UserPublicData(String username, String displayName, String bio, Long profileImageId, Long headerImageId,
-                          Integer followersCount, Integer followingCount, Boolean isFollowing, Boolean isFollowingMe,
-                          Boolean followingMe, Boolean following, Integer postsCount) {
+    public UserPublicData(Long userId, String username, String displayName, String bio, Long profileImageId, Long headerImageId, Integer followersCount, Integer followingCount, Boolean isFollowing, Boolean isFollowingMe, Integer postsCount) {
+        this.userId = userId;
         this.username = username;
         this.displayName = displayName;
         this.bio = bio;
@@ -28,8 +50,41 @@ public class UserPublicData {
         this.followingCount = followingCount;
         this.isFollowing = isFollowing;
         this.isFollowingMe = isFollowingMe;
-        this.followingMe = followingMe;
-        this.following = following;
+        this.postsCount = postsCount;
+    }
+
+    public UserPublicData(Long userId, String username, String displayName, String bio, Long profileImageId, Long headerImageId, Integer followersCount, Integer followingCount) {
+        this.userId = userId;
+        this.username = username;
+        this.displayName = displayName;
+        this.bio = bio;
+        this.profileImageId = profileImageId;
+        this.headerImageId = headerImageId;
+        this.followersCount = followersCount;
+        this.followingCount = followingCount;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public Boolean getFollowingMe() {
+        return isFollowingMe;
+    }
+
+    public void setFollowingMe(Boolean followingMe) {
+        isFollowingMe = followingMe;
+    }
+
+    public Integer getPostsCount() {
+        return postsCount;
+    }
+
+    public void setPostsCount(Integer postsCount) {
         this.postsCount = postsCount;
     }
 
@@ -89,12 +144,12 @@ public class UserPublicData {
         this.followingCount = followingCount;
     }
 
-    public Boolean getIsFollowing() {
+    public Boolean getFollowing() {
         return isFollowing;
     }
 
-    public void setIsFollowing(Boolean isFollowing) {
-        this.isFollowing = isFollowing;
+    public void setFollowing(Boolean following) {
+        isFollowing = following;
     }
 
     public Boolean getIsFollowingMe() {
@@ -103,29 +158,5 @@ public class UserPublicData {
 
     public void setIsFollowingMe(Boolean isFollowingMe) {
         this.isFollowingMe = isFollowingMe;
-    }
-
-    public Boolean getFollowingMe() {
-        return followingMe;
-    }
-
-    public void setFollowingMe(Boolean followingMe) {
-        this.followingMe = followingMe;
-    }
-
-    public Boolean getFollowing() {
-        return following;
-    }
-
-    public void setFollowing(Boolean following) {
-        this.following = following;
-    }
-
-    public Integer getPostsCount() {
-        return postsCount;
-    }
-
-    public void setPostsCount(Integer postsCount) {
-        this.postsCount = postsCount;
     }
 }
