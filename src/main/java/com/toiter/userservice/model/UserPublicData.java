@@ -16,10 +16,10 @@ public class UserPublicData {
     private String bio;
 
     @JsonView(Views.Public.class)
-    private Long profileImageId;
+    private String profileImageUrl;
 
     @JsonView(Views.Public.class)
-    private Long headerImageId;
+    private String headerImageUrl;
 
     @JsonView(Views.Public.class)
     private Integer followersCount;
@@ -39,13 +39,13 @@ public class UserPublicData {
     public UserPublicData() {
     }
 
-    public UserPublicData(Long userId, String username, String displayName, String bio, Long profileImageId, Long headerImageId, Integer followersCount, Integer followingCount, Boolean isFollowing, Boolean isFollowingMe, Integer postsCount) {
+    public UserPublicData(Long userId, String username, String displayName, String bio, String profileImageUrl, String headerImageUrl, Integer followersCount, Integer followingCount, Boolean isFollowing, Boolean isFollowingMe, Integer postsCount) {
         this.userId = userId;
         this.username = username;
         this.displayName = displayName;
         this.bio = bio;
-        this.profileImageId = profileImageId;
-        this.headerImageId = headerImageId;
+        this.profileImageUrl = profileImageUrl;
+        this.headerImageUrl = headerImageUrl;
         this.followersCount = followersCount;
         this.followingCount = followingCount;
         this.isFollowing = isFollowing;
@@ -53,13 +53,13 @@ public class UserPublicData {
         this.postsCount = postsCount;
     }
 
-    public UserPublicData(Long userId, String username, String displayName, String bio, Long profileImageId, Long headerImageId, Integer followersCount, Integer followingCount) {
+    public UserPublicData(Long userId, String username, String displayName, String bio, String profileImageUrl, String headerImageUrl, Integer followersCount, Integer followingCount) {
         this.userId = userId;
         this.username = username;
         this.displayName = displayName;
         this.bio = bio;
-        this.profileImageId = profileImageId;
-        this.headerImageId = headerImageId;
+        this.profileImageUrl = profileImageUrl;
+        this.headerImageUrl = headerImageUrl;
         this.followersCount = followersCount;
         this.followingCount = followingCount;
     }
@@ -112,20 +112,20 @@ public class UserPublicData {
         this.bio = bio;
     }
 
-    public Long getProfileImageId() {
-        return profileImageId;
+    public String getProfileImageUrl() {
+        return profileImageUrl;
     }
 
-    public void setProfileImageId(Long profileImageId) {
-        this.profileImageId = profileImageId;
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
-    public Long getHeaderImageId() {
-        return headerImageId;
+    public String getHeaderImageUrl() {
+        return headerImageUrl;
     }
 
-    public void setHeaderImageId(Long headerImageId) {
-        this.headerImageId = headerImageId;
+    public void setHeaderImageUrl(String headerImageUrl) {
+        this.headerImageUrl = headerImageUrl;
     }
 
     public Integer getFollowersCount() {

@@ -75,7 +75,7 @@ public class PostService {
             UserResponse userResponse = userClientService.getUserById(userId);
             postData.setUsername(userResponse.getUsername());
             postData.setDisplayName(userResponse.getDisplayName());
-            String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
+            String userProfilePicture = userResponse.getProfileImageUrl();
             postData.setProfilePicture(userProfilePicture);
 
             postData.setIsLiked(false);
@@ -140,7 +140,7 @@ public class PostService {
 
                 logger.debug("Post data found in database for ID: {}", id);
 
-                String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
+                String userProfilePicture = userResponse.getProfileImageUrl();
                 post.get().setProfilePicture(userProfilePicture);
 
                 post.get().setIsLiked(
@@ -284,8 +284,7 @@ public class PostService {
         UserResponse userResponse = userClientService.getUserById(postData.getUserId());
         postData.setUsername(userResponse.getUsername());
         postData.setDisplayName(userResponse.getDisplayName());
-        String userProfilePicture = userClientService.getUserProfilePicture(userResponse.getUsername());
-        postData.setProfilePicture(userProfilePicture);
+        postData.setProfilePicture(userResponse.getProfileImageUrl());
         if (userId != null) {
             postData.setIsLiked(likeService.userLikedPost(userId, postData.getId()));
         }

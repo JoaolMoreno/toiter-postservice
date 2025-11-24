@@ -94,30 +94,6 @@ public class UserClientService {
         return userResponse;
     }
 
-    public String getUserProfilePicture(String username) {
-        logger.debug("Fetching user profile picture for username: {}", username);
-
-        Long userId = getUserIdByUsername(username);
-        UserPublicData data = getUserPublicData(userId);
-        if (data != null && data.getProfileImageId() != null) {
-            logger.debug("CACHE HIT: user public data/profile image found for username: {} (userId={}) -> profileImageId={}", username, userId, data.getProfileImageId());
-            return getProfilePictureUrl(data.getProfileImageId());
-        }
-
-        logger.debug("CACHE MISS: profile image not available in public data for username: {} (userId={}). Falling back to user service.", username, userId);
-        String url = userServiceUrl + "/users/" + username + "/profile-picture";
-        logger.debug("Calling user service URL: {}", url);
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + sharedKey);
-
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
-        String body = response.getBody();
-        logger.debug("User service returned profile picture value for username {}: {}", username, body != null ? "<non-null>" : "<null>");
-        return body;
-    }
-
     public UserPublicData getUserPublicData(Long userId) {
         logger.debug("Fetching public data for user ID: {}", userId);
 
@@ -144,9 +120,5 @@ public class UserClientService {
 
         logger.debug("User service returned public data for user ID: {}", userId);
         return userPublicData;
-    }
-
-    public String getProfilePictureUrl(Long profileImageId) {
-        return profileImageId != null ? serverUrl + "/images/" + profileImageId : null;
     }
 }

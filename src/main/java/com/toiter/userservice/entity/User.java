@@ -29,26 +29,11 @@ public class User {
 
     private String bio;
 
-    private Long profileImageId;
+    private String profileImageUrl;
 
-    private Long headerImageId;
+    private String headerImageUrl;
 
     private LocalDateTime creationDate = LocalDateTime.now();
-
-    public User() {}
-
-    public User(Long id, String username, String displayName, String email, String password, String bio,
-                Long profileImageId, Long headerImageId, LocalDateTime creationDate) {
-        this.id = id;
-        this.username = username;
-        this.displayName = displayName;
-        this.email = email;
-        this.password = password;
-        this.bio = bio;
-        this.profileImageId = profileImageId;
-        this.headerImageId = headerImageId;
-        this.creationDate = creationDate;
-    }
 
     public Long getId() {
         return id;
@@ -98,20 +83,20 @@ public class User {
         this.bio = bio;
     }
 
-    public Long getProfileImageId() {
-        return profileImageId;
+    public String getProfileImageUrl() {
+        return profileImageUrl;
     }
 
-    public void setProfileImageId(Long profileImageId) {
-        this.profileImageId = profileImageId;
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
-    public Long getHeaderImageId() {
-        return headerImageId;
+    public String getHeaderImageUrl() {
+        return headerImageUrl;
     }
 
-    public void setHeaderImageId(Long headerImageId) {
-        this.headerImageId = headerImageId;
+    public void setHeaderImageUrl(String headerImageUrl) {
+        this.headerImageUrl = headerImageUrl;
     }
 
     public LocalDateTime getCreationDate() {
