@@ -32,14 +32,16 @@ public class PostService {
     private final ViewRepository viewRepository;
     private final LikeService likeService;
     private final CacheService cacheService;
+    private final ImageService imageService;
 
-    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, ViewRepository viewRepository, LikeService likeService, CacheService cacheService) {
+    public PostService(UserClientService userClientService, PostRepository postRepository, KafkaProducer kafkaProducer, ViewRepository viewRepository, LikeService likeService, CacheService cacheService, ImageService imageService) {
         this.userClientService = userClientService;
         this.postRepository = postRepository;
         this.kafkaProducer = kafkaProducer;
         this.viewRepository = viewRepository;
         this.likeService = likeService;
         this.cacheService = cacheService;
+        this.imageService = imageService;
     }
 
     @Transactional
@@ -62,7 +64,9 @@ public class PostService {
                 post.repostParentId(),
                 userId,
                 post.content(),
-                post.mediaUrl()
+                post.mediaUrl(),
+                post.mediaWidth(),
+                post.mediaHeight()
         );
         postRepository.save(newPost);
 
@@ -71,24 +75,27 @@ public class PostService {
             kafkaProducer.sendPostCreatedEvent(event);
             PostData postData = new PostData(newPost);
 
-            // Enrich only for response (cache will store sanitized copy)
+            try {
+                cacheService.cachePostData(postData);
+            } catch (Exception e) {
+                logger.error("Failed to cache post data for post ID: {}", newPost.getId(), e);
+            }
+
             UserResponse userResponse = userClientService.getUserById(userId);
             postData.setUsername(userResponse.getUsername());
             postData.setDisplayName(userResponse.getDisplayName());
             String userProfilePicture = userResponse.getProfileImageUrl();
             postData.setProfilePicture(userProfilePicture);
+            
+            if (postData.getMediaUrl() != null && !postData.getMediaUrl().isEmpty()) {
+                postData.setMediaUrl(imageService.getPublicUrl(postData.getMediaUrl()));
+            }
 
             postData.setIsLiked(false);
 
             if(postData.getRepostParentId() != null){
                 Optional<PostData> repostedPostData = getPostById(postData.getRepostParentId(), -1, userId);
                 repostedPostData.ifPresent(postData::setRepostPostData);
-            }
-
-            try {
-                cacheService.cachePostData(postData);
-            } catch (Exception e) {
-                logger.error("Failed to cache post data for post ID: {}", newPost.getId(), e);
             }
 
             return postData;
@@ -142,6 +149,10 @@ public class PostService {
 
                 String userProfilePicture = userResponse.getProfileImageUrl();
                 post.get().setProfilePicture(userProfilePicture);
+                
+                if (post.get().getMediaUrl() != null && !post.get().getMediaUrl().isEmpty()) {
+                    post.get().setMediaUrl(imageService.getPublicUrl(post.get().getMediaUrl()));
+                }
 
                 post.get().setIsLiked(
                         likeService.userLikedPost(userId, id)
@@ -194,12 +205,19 @@ public class PostService {
         if (!postUserId.equals(userId)) {
             throw new IllegalArgumentException("Usuário não tem permissão para deletar este post");
         }
+        
+        String mediaUrl = post.getMediaUrl();
+        
         post.setContent("");
         post.setMediaUrl(null);
         post.setDeletedAt(LocalDateTime.now());
         post.setDeleted(true);
 
         postRepository.save(post);
+        
+        if (mediaUrl != null && !mediaUrl.isEmpty()) {
+            imageService.deleteImage(mediaUrl);
+        }
 
         try {
             PostDeletedEvent event = new PostDeletedEvent(post);
@@ -285,6 +303,9 @@ public class PostService {
         postData.setUsername(userResponse.getUsername());
         postData.setDisplayName(userResponse.getDisplayName());
         postData.setProfilePicture(userResponse.getProfileImageUrl());
+        if (postData.getMediaUrl() != null && !postData.getMediaUrl().isEmpty()) {
+            postData.setMediaUrl(imageService.getPublicUrl(postData.getMediaUrl()));
+        }
         if (userId != null) {
             postData.setIsLiked(likeService.userLikedPost(userId, postData.getId()));
         }

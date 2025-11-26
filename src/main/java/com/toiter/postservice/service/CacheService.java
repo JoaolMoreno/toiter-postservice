@@ -115,7 +115,7 @@ public class CacheService {
             PostData toCache = sanitizeForCache(postData);
             redisTemplateForPostData.opsForValue().set(POST_ID_DATA_KEY_PREFIX + postData.getId(), toCache, Duration.ofHours(1));
 
-            redisTemplateForSet.opsForSet().remove(userIndexKey);
+            redisTemplateForSet.opsForSet().remove(userIndexKey, postData.getId());
         });
     }
 

@@ -43,6 +43,12 @@ public class PostData {
     private String mediaUrl;
 
     @JsonView(Views.Public.class)
+    private Integer mediaWidth;
+
+    @JsonView(Views.Public.class)
+    private Integer mediaHeight;
+
+    @JsonView(Views.Public.class)
     private Integer likesCount = 0;
 
     @JsonView(Views.Public.class)
@@ -70,8 +76,8 @@ public class PostData {
     }
 
     public PostData(Long id, Long parentPostId, Long repostParentId, Long userId,
-                    String content, String mediaUrl, Long likesCount,
-                    Long repliesCount, Long repostsCount, Long viewCount,
+                    String content, String mediaUrl, Integer mediaWidth, Integer mediaHeight,
+                    Long likesCount, Long repliesCount, Long repostsCount, Long viewCount,
                     LocalDateTime createdAt) {
         this.id = id;
         this.parentPostId = parentPostId;
@@ -79,10 +85,50 @@ public class PostData {
         this.userId = userId;
         this.content = content;
         this.mediaUrl = mediaUrl;
-        this.likesCount = likesCount.intValue();
-        this.repliesCount = repliesCount.intValue();
-        this.repostsCount = repostsCount.intValue();
-        this.viewCount = viewCount.intValue();
+        this.mediaWidth = mediaWidth;
+        this.mediaHeight = mediaHeight;
+        this.likesCount = likesCount != null ? likesCount.intValue() : 0;
+        this.repliesCount = repliesCount != null ? repliesCount.intValue() : 0;
+        this.repostsCount = repostsCount != null ? repostsCount.intValue() : 0;
+        this.viewCount = viewCount != null ? viewCount.intValue() : 0;
+        this.createdAt = createdAt;
+    }
+
+    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId,
+                    String content, String mediaUrl, Integer mediaWidth, Integer mediaHeight,
+                    long likesCount, long repliesCount, long repostsCount, long viewCount,
+                    LocalDateTime createdAt) {
+        this.id = id;
+        this.parentPostId = parentPostId;
+        this.repostParentId = repostParentId;
+        this.userId = userId;
+        this.content = content;
+        this.mediaUrl = mediaUrl;
+        this.mediaWidth = mediaWidth;
+        this.mediaHeight = mediaHeight;
+        this.likesCount = (int) likesCount;
+        this.repliesCount = (int) repliesCount;
+        this.repostsCount = (int) repostsCount;
+        this.viewCount = (int) viewCount;
+        this.createdAt = createdAt;
+    }
+
+    public PostData(Long id, Long parentPostId, Long repostParentId, Long userId,
+                    String content, String mediaUrl, Integer mediaWidth, Integer mediaHeight,
+                    int likesCount, int repliesCount, int repostsCount, int viewCount,
+                    LocalDateTime createdAt) {
+        this.id = id;
+        this.parentPostId = parentPostId;
+        this.repostParentId = repostParentId;
+        this.userId = userId;
+        this.content = content;
+        this.mediaUrl = mediaUrl;
+        this.mediaWidth = mediaWidth;
+        this.mediaHeight = mediaHeight;
+        this.likesCount = likesCount;
+        this.repliesCount = repliesCount;
+        this.repostsCount = repostsCount;
+        this.viewCount = viewCount;
         this.createdAt = createdAt;
     }
 
@@ -95,6 +141,8 @@ public class PostData {
         this.userId = post.getUserId();
         this.content = post.getContent();
         this.mediaUrl = post.getMediaUrl();
+        this.mediaWidth = post.getMediaWidth();
+        this.mediaHeight = post.getMediaHeight();
         this.createdAt = post.getCreatedAt();
         this.deleted = post.isDeleted();
     }
@@ -177,6 +225,22 @@ public class PostData {
 
     public void setMediaUrl(String mediaUrl) {
         this.mediaUrl = mediaUrl;
+    }
+
+    public Integer getMediaWidth() {
+        return mediaWidth;
+    }
+
+    public void setMediaWidth(Integer mediaWidth) {
+        this.mediaWidth = mediaWidth;
+    }
+
+    public Integer getMediaHeight() {
+        return mediaHeight;
+    }
+
+    public void setMediaHeight(Integer mediaHeight) {
+        this.mediaHeight = mediaHeight;
     }
 
     public Integer getLikesCount() {

@@ -24,6 +24,10 @@ CREATE TABLE pst.posts (
                            deleted BOOLEAN DEFAULT FALSE
 );
 
+ALTER TABLE pst.posts
+    ADD COLUMN media_width INTEGER,
+    ADD COLUMN media_height INTEGER;
+
 -- Adicionar constraint para parent_post_id referenciando pst.posts(id)
 ALTER TABLE pst.posts
     ADD CONSTRAINT fk_parent_post
