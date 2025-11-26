@@ -35,16 +35,49 @@ O **Post Service** é um dos microsserviços do ecossistema **Toiter**, respons�
 - **Consumo de Eventos**:
     - Pode consumir eventos para integrar com outros serviços (e.g., atualizações de usuários).
 
-#### **3. Endpoints Internos**
+#### **3. Upload e Armazenamento de Imagens**
+- **Upload para S3 (MinIO/AWS S3)**:
+    - Suporte a upload de imagens via multipart/form-data
+    - Validação automática de tipo e tamanho (máx. 10MB)
+    - Formatos suportados: JPEG, PNG, GIF, WebP
+    - Geração de URLs pré-assinadas para acesso seguro
+
+- **Extração Automática de Dimensões**:
+    - Ao fazer upload, o sistema **automaticamente extrai** largura e altura da imagem
+    - Usa `javax.imageio.ImageIO` para leitura de metadados
+    - Dimensões são armazenadas no banco de dados (`media_width`, `media_height`)
+    - **Sem redimensionamento**: imagem original é preservada
+    - Graceful degradation: se não conseguir ler dimensões, continua o upload normalmente
+
+- **API Response com Dimensões**:
+    ```json
+    {
+      "id": 123,
+      "content": "Confira esta foto!",
+      "mediaUrl": "https://s3.../posts/abc-123",
+      "mediaWidth": 1920,
+      "mediaHeight": 1080,
+      "likesCount": 5,
+      ...
+    }
+    ```
+
+- **Benefícios**:
+    - Frontend pode exibir placeholders com aspect ratio correto
+    - Melhora UX evitando "layout shift" durante carregamento
+    - Permite otimizações de layout antes da imagem carregar
+    - Útil para galerias e grids responsivos
+
+#### **4. Endpoints Internos**
 - Endpoints `/internal/**` para consultas internas, acessíveis apenas por outros microsserviços autorizados.
 
-#### **4. Threads e Hierarquia**
+#### **5. Threads e Hierarquia**
 - Suporte à criação de threads hierárquicas:
     - **Posts Originais**: Raiz de uma thread.
     - **Respostas**: Relacionadas ao `parent_post_id`.
     - **Repostagens**: Relacionadas ao `repost_id`.
 
-#### **5. Autenticação e Autorização**
+#### **6. Autenticação e Autorização**
 
 O Post Service implementa um modelo de autenticação seguro baseado em cookies HttpOnly:
 
@@ -149,9 +182,17 @@ O Post Service implementa um modelo de autenticação seguro baseado em cookies 
             user_id INTEGER NOT NULL,
             content TEXT NOT NULL,
             media_url TEXT,
+            media_width INTEGER,
+            media_height INTEGER,
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
         );
+        ```
+    - **Migration para adicionar dimensões de imagem** (se necessário):
+        ```sql
+        ALTER TABLE pst.posts 
+        ADD COLUMN media_width INTEGER,
+        ADD COLUMN media_height INTEGER;
         ```
     - Índices:
         - `parent_post_id` e `user_id` para consultas rápidas.
@@ -219,6 +260,15 @@ O Post Service implementa um modelo de autenticação seguro baseado em cookies 
    # Kafka
    SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
    
+   # S3/MinIO - Armazenamento de Imagens
+   S3_ENDPOINT=http://localhost:9000
+   S3_ACCESS_KEY=minioadmin
+   S3_SECRET_KEY=minioadmin
+   S3_BUCKET_NAME=toiter-posts
+   S3_REGION=us-east-1
+   S3_PUBLIC_HOST=http://localhost:9000
+   S3_PRESIGN_DURATION_DAYS=7
+   
    # JWT - Deve ser o mesmo usado no User Service
    JWT_SECRET=sua-chave-secreta-jwt
    JWT_ACCESS_TOKEN_EXPIRATION=3600000
@@ -283,6 +333,25 @@ O Post Service implementa um modelo de autenticação seguro baseado em cookies 
    ```bash
    curl -X GET "http://localhost:9991/api/internal/posts/count?userId=123" \
      -H "Authorization: Bearer T0iter"
+   ```
+
+   **Upload de Imagem com Extração Automática de Dimensões:**
+   ```bash
+   # Criar post com imagem (multipart/form-data)
+   curl -X POST "http://localhost:9991/api/posts" \
+     -H "Cookie: accessToken=seu-jwt-token-aqui" \
+     -F "post={\"content\":\"Confira esta foto!\",\"parentPostId\":null,\"repostParentId\":null};type=application/json" \
+     -F "media=@/caminho/para/imagem.jpg"
+   
+   # Response incluirá automaticamente as dimensões:
+   # {
+   #   "id": 123,
+   #   "content": "Confira esta foto!",
+   #   "mediaUrl": "https://s3.../posts/abc-123",
+   #   "mediaWidth": 1920,
+   #   "mediaHeight": 1080,
+   #   ...
+   # }
    ```
 
 7. **Executar Testes:**
@@ -372,11 +441,34 @@ Os relatórios de teste são gerados em `build/reports/tests/test/index.html`
 1. **Cache de Posts**:
     - Integração com Redis para armazenar dados de posts populares e threads.
 
-2. **Suporte a Mídia**:
-    - Migração do armazenamento de mídia para um serviço externo (e.g., AWS S3).
+2. **Otimização de Imagens**:
+    - ✅ **Implementado**: Upload para S3/MinIO com extração automática de dimensões
+    - ✅ **Implementado**: Armazenamento de `mediaWidth` e `mediaHeight` no banco
+    - **Próximo**: Geração automática de thumbnails e múltiplos tamanhos
+    - **Próximo**: Compressão inteligente baseada no tipo de conteúdo
+    - **Próximo**: Suporte a transformações de imagem (crop, resize) sob demanda
 
 3. **Monitoramento e Logs**:
     - Integração com Prometheus, Grafana e ELK Stack para monitoramento e observabilidade.
+
+4. **Rate Limiting Avançado**:
+    - Implementação de rate limiting por usuário e endpoint.
+    - Proteção contra spam e abuso.
+
+---
+
+### **Changelog**
+
+#### **2025-11-26**
+- ✅ Implementado extração automática de dimensões de imagem
+- ✅ Adicionados campos `media_width` e `media_height` à entidade Post
+- ✅ API agora retorna dimensões da imagem em todos os endpoints de posts
+- ✅ Graceful degradation: upload continua mesmo se não conseguir ler dimensões
+
+#### **2025-11**
+- ✅ Refatoração de autenticação com cookies HttpOnly
+- ✅ 15 testes automatizados para autenticação
+- ✅ Documentação de segurança completa (SECURITY.md)
 
 ---
 

@@ -27,6 +27,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             p.userId,
             p.content,
             p.mediaUrl,
+            p.mediaWidth,
+            p.mediaHeight,
             COUNT(DISTINCT l.id) as likesCount,
             COUNT(DISTINCT r.id) as repliesCount,
             COUNT(DISTINCT rp.id) as repostsCount,

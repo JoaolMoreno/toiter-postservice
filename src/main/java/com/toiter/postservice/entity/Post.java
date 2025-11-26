@@ -28,6 +28,12 @@ public class Post {
     @Column(name = "media_url")
     private String mediaUrl;
 
+    @Column(name = "media_width")
+    private Integer mediaWidth;
+
+    @Column(name = "media_height")
+    private Integer mediaHeight;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -41,12 +47,14 @@ public class Post {
     public Post() {
     }
 
-    public Post(Long parentPostId, Long repostParentId, Long userId, String content, String mediaUrl) {
+    public Post(Long parentPostId, Long repostParentId, Long userId, String content, String mediaUrl, Integer mediaWidth, Integer mediaHeight) {
         this.parentPostId = parentPostId;
         this.repostParentId = repostParentId;
         this.userId = userId;
         this.content = content;
         this.mediaUrl = mediaUrl;
+        this.mediaWidth = mediaWidth;
+        this.mediaHeight = mediaHeight;
     }
 
     @PrePersist
@@ -102,6 +110,22 @@ public class Post {
         this.mediaUrl = mediaUrl;
     }
 
+    public Integer getMediaWidth() {
+        return mediaWidth;
+    }
+
+    public void setMediaWidth(Integer mediaWidth) {
+        this.mediaWidth = mediaWidth;
+    }
+
+    public Integer getMediaHeight() {
+        return mediaHeight;
+    }
+
+    public void setMediaHeight(Integer mediaHeight) {
+        this.mediaHeight = mediaHeight;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -135,6 +159,8 @@ public class Post {
                 ", userId=" + userId +
                 ", content='" + content + '\'' +
                 ", mediaUrl='" + mediaUrl + '\'' +
+                ", mediaWidth=" + mediaWidth +
+                ", mediaHeight=" + mediaHeight +
                 ", createdAt=" + createdAt +
                 ", deletedAt=" + deletedAt +
                 ", deleted=" + deleted +

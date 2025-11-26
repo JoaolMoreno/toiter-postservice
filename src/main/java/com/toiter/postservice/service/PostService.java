@@ -64,7 +64,9 @@ public class PostService {
                 post.repostParentId(),
                 userId,
                 post.content(),
-                post.mediaUrl()
+                post.mediaUrl(),
+                post.mediaWidth(),
+                post.mediaHeight()
         );
         postRepository.save(newPost);
 

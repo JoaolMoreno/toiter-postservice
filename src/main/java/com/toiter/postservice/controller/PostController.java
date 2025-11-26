@@ -4,6 +4,7 @@ import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
 import com.toiter.postservice.model.PostThread;
+import com.toiter.postservice.model.ImageUploadResult;
 import com.toiter.postservice.service.ImageService;
 import com.toiter.postservice.service.JwtService;
 import com.toiter.postservice.service.LikeService;
@@ -92,14 +93,48 @@ public class PostController {
             @ApiResponse(responseCode = "401", description = "Não autorizado",
                     content = @Content)
     })
-    @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @JsonView(Views.Public.class)
     public ResponseEntity<PostData> createPost(
+            @Valid @RequestBody PostRequest postRequest,
+            Authentication authentication) {
+        logger.debug("createPost (json) called");
+
+        Long userId = jwtService.getUserIdFromAuthentication(authentication);
+
+        try {
+            PostData createdPost = postService.createPost(postRequest, userId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdPost);
+        } catch (IllegalArgumentException e) {
+            logger.error("Validation error creating post", e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error creating post", e);
+            throw new RuntimeException("Failed to create post");
+        }
+    }
+
+    @Operation(summary = "Criar um novo post (multipart)",
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Post criado",
+                    content = { @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = Post.class)) }),
+            @ApiResponse(responseCode = "400", description = "Entrada inválida",
+                    content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado",
+                    content = @Content)
+    })
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @JsonView(Views.Public.class)
+    public ResponseEntity<PostData> createPostMultipart(
             @RequestPart(value = "post", required = false) String postJson,
             @RequestPart(value = "media", required = false) MultipartFile media,
-            @Valid @RequestBody(required = false) PostRequest postRequest,
             Authentication authentication) {
-        logger.debug("createPost called");
+        logger.debug("createPost (multipart) called");
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
@@ -107,22 +142,27 @@ public class PostController {
             PostRequest post;
             if (postJson != null) {
                 post = objectMapper.readValue(postJson, PostRequest.class);
-            } else if (postRequest != null) {
-                post = postRequest;
             } else {
                 throw new IllegalArgumentException("Post data is required");
             }
 
             String mediaKey = null;
+            Integer mediaWidth = null;
+            Integer mediaHeight = null;
             if (media != null && !media.isEmpty()) {
-                mediaKey = imageService.uploadImage(media);
+                ImageUploadResult uploadResult = imageService.uploadImage(media);
+                mediaKey = uploadResult.getKey();
+                mediaWidth = uploadResult.getWidth();
+                mediaHeight = uploadResult.getHeight();
             }
 
             PostRequest finalPostRequest = new PostRequest(
                     post.parentPostId(),
                     post.repostParentId(),
                     post.content(),
-                    mediaKey != null ? mediaKey : post.mediaUrl()
+                    mediaKey != null ? mediaKey : post.mediaUrl(),
+                    mediaWidth != null ? mediaWidth : post.mediaWidth(),
+                    mediaHeight != null ? mediaHeight : post.mediaHeight()
             );
 
             PostData createdPost = postService.createPost(finalPostRequest, userId);

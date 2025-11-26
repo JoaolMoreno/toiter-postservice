@@ -42,11 +42,34 @@ public class JwtService {
     }
 
     public Long getUserIdFromAuthentication(Authentication authentication) {
+        if (authentication == null) {
+            return null;
+        }
+
         Object principal = authentication.getPrincipal();
         if (principal == null) {
-            throw new IllegalArgumentException("Principal cannot be null");
+            return null;
         }
-        return (Long) principal;
+
+        if (principal instanceof Long) {
+            return (Long) principal;
+        }
+
+        if (principal instanceof Number) {
+            return ((Number) principal).longValue();
+        }
+
+        if (principal instanceof String) {
+            try {
+                return Long.valueOf((String) principal);
+            } catch (NumberFormatException e) {
+                // principal is not a numeric id string, return null to indicate unauthenticated
+                return null;
+            }
+        }
+
+        // Unknown principal type -> return null (treat as unauthenticated)
+        return null;
     }
 
 

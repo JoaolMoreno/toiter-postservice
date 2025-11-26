@@ -1,5 +1,6 @@
 package com.toiter.postservice.service;
 
+import com.toiter.postservice.model.ImageUploadResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,11 +11,17 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -38,19 +45,39 @@ public class ImageService {
     @Value("${s3.bucket-name}")
     private String bucketName;
 
-    @Value("${s3.public-host}")
+    @Value("${s3.public-host:}")
     private String publicHost;
 
-    @Value("${s3.presign-duration-days}")
-    private int presignDurationDays;
+    @Value("${s3.host:}")
+    private String s3Host;
+
+    @Value("${s3.presign-duration-days:7}")
+    private long presignDurationDays;
 
     public ImageService(S3Client s3Client, S3Presigner s3Presigner) {
         this.s3Client = s3Client;
         this.s3Presigner = s3Presigner;
     }
 
-    public String uploadImage(MultipartFile file) throws IOException {
+    public ImageUploadResult uploadImage(MultipartFile file) throws IOException {
         validateFile(file);
+
+        Integer width = null;
+        Integer height = null;
+        try {
+            byte[] fileBytes = file.getBytes();
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(fileBytes));
+            if (image != null) {
+                width = image.getWidth();
+                height = image.getHeight();
+                logger.debug("Image dimensions: {}x{}", width, height);
+            } else {
+                logger.warn("Could not read image dimensions for file: {}", file.getOriginalFilename());
+            }
+        } catch (Exception e) {
+            logger.error("Error reading image dimensions", e);
+            // Continue without dimensions rather than failing the upload
+        }
 
         String key = "posts/" + UUID.randomUUID().toString();
         String contentType = file.getContentType();
@@ -64,7 +91,7 @@ public class ImageService {
         s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
 
         logger.info("Uploaded image with key: {}", key);
-        return key;
+        return new ImageUploadResult(key, width, height);
     }
 
     public String getPublicUrl(String key) {
@@ -72,26 +99,51 @@ public class ImageService {
             return null;
         }
 
+        if (key.startsWith("http://") || key.startsWith("https://")) {
+            return key;
+        }
+
+        long daysToUse = presignDurationDays;
+        if (s3Host != null && s3Host.contains("amazonaws")) {
+            daysToUse = Math.min(presignDurationDays, 7);
+            if (presignDurationDays > 7) logger.warn("Clamping presign duration from {} to {} for AWS endpoint", presignDurationDays, daysToUse);
+        }
+
         try {
-            if (publicHost != null && !publicHost.isEmpty()) {
-                return publicHost + "/" + bucketName + "/" + key;
-            }
-
-            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                    .signatureDuration(Duration.ofDays(presignDurationDays))
-                    .getObjectRequest(builder -> builder.bucket(bucketName).key(key))
-                    .build();
-
-            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
-            return presignedRequest.url().toString();
-        } catch (Exception e) {
-            logger.error("Failed to generate public URL for key: {}", key, e);
-            
-            GetUrlRequest getUrlRequest = GetUrlRequest.builder()
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build();
-            return s3Client.utilities().getUrl(getUrlRequest).toString();
+
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .getObjectRequest(getObjectRequest)
+                    .signatureDuration(Duration.ofDays(daysToUse))
+                    .build();
+
+            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+            String url = presignedRequest.url().toString();
+            logger.debug("Presigned URL for key {} (truncated): {}", key, url.length() > 200 ? url.substring(0, 200) + "..." : url);
+            return url;
+        } catch (Exception e) {
+            logger.error("Failed to generate presigned public URL for key: {}", key, e);
+
+            try {
+                String hostToUse = (publicHost != null && !publicHost.isBlank()) ? publicHost : (s3Host != null && !s3Host.isBlank() ? s3Host : null);
+                if (hostToUse != null && !hostToUse.isBlank()) {
+                    String safeHost = hostToUse.replaceAll("/+$", "");
+                    String encodedKey = URLEncoder.encode(key, StandardCharsets.UTF_8);
+                    return String.format("%s/%s/%s", safeHost, bucketName, encodedKey);
+                }
+
+                GetUrlRequest getUrlRequest = GetUrlRequest.builder()
+                        .bucket(bucketName)
+                        .key(key)
+                        .build();
+                return s3Client.utilities().getUrl(getUrlRequest).toString();
+            } catch (Exception ex) {
+                logger.error("Fallback URL generation also failed for key: {}", key, ex);
+                return null;
+            }
         }
     }
 
