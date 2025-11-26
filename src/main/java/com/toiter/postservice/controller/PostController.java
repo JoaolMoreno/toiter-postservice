@@ -127,9 +127,12 @@ public class PostController {
 
             PostData createdPost = postService.createPost(finalPostRequest, userId);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdPost);
+        } catch (IllegalArgumentException e) {
+            logger.error("Validation error creating post", e);
+            throw e;
         } catch (Exception e) {
             logger.error("Error creating post", e);
-            throw new RuntimeException("Failed to create post: " + e.getMessage());
+            throw new RuntimeException("Failed to create post");
         }
     }
 

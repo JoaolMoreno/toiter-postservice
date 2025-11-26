@@ -129,9 +129,12 @@ public class ImageService {
 
         String originalFilename = file.getOriginalFilename();
         if (originalFilename != null) {
-            String extension = originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase();
-            if (!ALLOWED_EXTENSIONS.contains(extension)) {
-                throw new IllegalArgumentException("File extension not allowed. Allowed extensions: .jpg, .jpeg, .png, .gif, .webp");
+            int lastDotIndex = originalFilename.lastIndexOf('.');
+            if (lastDotIndex > 0) {
+                String extension = originalFilename.substring(lastDotIndex).toLowerCase();
+                if (!ALLOWED_EXTENSIONS.contains(extension)) {
+                    throw new IllegalArgumentException("File extension not allowed. Allowed extensions: .jpg, .jpeg, .png, .gif, .webp");
+                }
             }
         }
     }
