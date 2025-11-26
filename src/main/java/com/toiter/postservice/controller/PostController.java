@@ -4,11 +4,13 @@ import com.toiter.postservice.entity.Post;
 import com.toiter.postservice.model.PostData;
 import com.toiter.postservice.model.PostRequest;
 import com.toiter.postservice.model.PostThread;
+import com.toiter.postservice.service.ImageService;
 import com.toiter.postservice.service.JwtService;
 import com.toiter.postservice.service.LikeService;
 import com.toiter.postservice.service.PostService;
 import com.toiter.userservice.model.Views;
 import com.fasterxml.jackson.annotation.JsonView;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,8 +28,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,12 +43,16 @@ public class PostController {
     private final PostService postService;
     private final LikeService likeService;
     private final JwtService jwtService;
+    private final ImageService imageService;
+    private final ObjectMapper objectMapper;
     private static final Logger logger = LoggerFactory.getLogger(PostController.class);
 
-    public PostController(PostService postService, LikeService likeService, JwtService jwtService) {
+    public PostController(PostService postService, LikeService likeService, JwtService jwtService, ImageService imageService, ObjectMapper objectMapper) {
         this.postService = postService;
         this.likeService = likeService;
         this.jwtService = jwtService;
+        this.imageService = imageService;
+        this.objectMapper = objectMapper;
     }
 
     @Operation(summary = "Obter posts com paginação",
@@ -84,17 +92,45 @@ public class PostController {
             @ApiResponse(responseCode = "401", description = "Não autorizado",
                     content = @Content)
     })
-    @PostMapping
+    @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
     @JsonView(Views.Public.class)
     public ResponseEntity<PostData> createPost(
-            @Valid @RequestBody PostRequest post,
+            @RequestPart(value = "post", required = false) String postJson,
+            @RequestPart(value = "media", required = false) MultipartFile media,
+            @Valid @RequestBody(required = false) PostRequest postRequest,
             Authentication authentication) {
-        logger.debug("createPost called with post: {}", post);
+        logger.debug("createPost called");
 
         Long userId = jwtService.getUserIdFromAuthentication(authentication);
 
-        PostData createdPost = postService.createPost(post, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdPost);
+        try {
+            PostRequest post;
+            if (postJson != null) {
+                post = objectMapper.readValue(postJson, PostRequest.class);
+            } else if (postRequest != null) {
+                post = postRequest;
+            } else {
+                throw new IllegalArgumentException("Post data is required");
+            }
+
+            String mediaKey = null;
+            if (media != null && !media.isEmpty()) {
+                mediaKey = imageService.uploadImage(media);
+            }
+
+            PostRequest finalPostRequest = new PostRequest(
+                    post.parentPostId(),
+                    post.repostParentId(),
+                    post.content(),
+                    mediaKey != null ? mediaKey : post.mediaUrl()
+            );
+
+            PostData createdPost = postService.createPost(finalPostRequest, userId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdPost);
+        } catch (Exception e) {
+            logger.error("Error creating post", e);
+            throw new RuntimeException("Failed to create post: " + e.getMessage());
+        }
     }
 
     @Operation(summary = "Obter um post pelo ID",
