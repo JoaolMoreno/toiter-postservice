@@ -8,11 +8,17 @@ import java.util.List;
 public class PostThread {
     @JsonView(Views.Public.class)
     private PostData parentPost;
+    @JsonView(Views.Public.class)
     private List<ChildPost> childPosts;
+    @JsonView(Views.Public.class)
     private boolean hasNext;
+    @JsonView(Views.Public.class)
     private long totalElements;
+    @JsonView(Views.Public.class)
     private int totalPages;
+    @JsonView(Views.Public.class)
     private int pageSize;
+    @JsonView(Views.Public.class)
     private int currentPage;
 
     public PostThread() {
