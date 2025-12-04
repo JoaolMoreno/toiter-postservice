@@ -1,19 +1,18 @@
-FROM eclipse-temurin:23.0.2_7-jdk-alpine
-
-# Define o diretório de trabalho dentro do contêiner
+FROM eclipse-temurin:23-jdk-alpine AS build
 WORKDIR /app
 
-# Copia os arquivos do projeto para o contêiner
-COPY . .
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle gradle
 
-# Torna o script gradlew executável
-RUN chmod +x gradlew
+RUN ./gradlew dependencies --no-daemon || return 0
 
-# Executa o comando de build do Gradle
-RUN ./gradlew clean build
+COPY src src
 
-# Copia o arquivo JAR gerado pelo Gradle para o contêiner
-RUN cp build/libs/app.jar app.jar
+RUN ./gradlew clean bootJar -x test --no-daemon
 
-# Define o comando de inicialização do contêiner
+FROM eclipse-temurin:23-jre-alpine
+WORKDIR /app
+
+COPY --from=build /app/build/libs/*.jar app.jar
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
